@@ -1,6 +1,244 @@
 import React, { useState } from 'react';
-import { ChevronDown, Play, Plus, TrendingUp, TrendingDown } from 'lucide-react';
+import { ChevronDown, Play, Plus, X, Calendar, Link } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend } from 'recharts';
+import { useForm } from 'react-hook-form';
+import toast from 'react-hot-toast';
+
+// Modal Component
+function AddGoalModal({ isOpen, onClose, onGoalAdded }) {
+  const [loading, setLoading] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+    watch
+  } = useForm({
+    defaultValues: {
+      goalTitle: '',
+      goalLink: '',
+      scheduledDate: '',
+      status: 'pending'
+    }
+  });
+
+  const onSubmit = async (data) => {
+    setLoading(true);
+
+    try {
+      // Here you would typically send data to your API
+      console.log('Goal data:', data);
+
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      const goalData = {
+        ...data,
+        scheduledDate: data.scheduledDate ? new Date(data.scheduledDate).toISOString() : null,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      toast.success('Goal added successfully!');
+      reset();
+      onGoalAdded(goalData);
+      onClose();
+    } catch (error) {
+      console.error('Error adding goal:', error);
+      toast.error('Failed to add goal. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClose = () => {
+    reset();
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+          <h2 className="text-xl font-bold text-gray-900">Add Goal of the Week</h2>
+          <button
+            onClick={handleClose}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
+          {/* Goal Title */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Goal Title *
+            </label>
+            <input
+              type="text"
+              placeholder="Enter goal title..."
+              {...register("goalTitle", {
+                required: "Goal title is required",
+                minLength: {
+                  value: 3,
+                  message: "Goal title must be at least 3 characters"
+                }
+              })}
+              className={`w-full px-4 py-3 bg-white border rounded-xl text-sm text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all ${errors.goalTitle ? 'border-red-500' : 'border-gray-200 hover:border-gray-300'
+                }`}
+            />
+            {errors.goalTitle && (
+              <p className="text-red-500 text-sm mt-2">{errors.goalTitle.message}</p>
+            )}
+          </div>
+
+          {/* Goal Link */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Goal Video Link *
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Link className="w-4 h-4 text-gray-400" />
+              </div>
+              <input
+                type="url"
+                placeholder="https://example.com/video.mp4"
+                {...register("goalLink", {
+                  required: "Video link is required",
+                  pattern: {
+                    value: /^(https?:\/\/).+/,
+                    message: "Please enter a valid URL"
+                  }
+                })}
+                className={`w-full pl-10 pr-4 py-3 bg-white border rounded-xl text-sm text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all ${errors.goalLink ? 'border-red-500' : 'border-gray-200 hover:border-gray-300'
+                  }`}
+              />
+            </div>
+            {errors.goalLink && (
+              <p className="text-red-500 text-sm mt-2">{errors.goalLink.message}</p>
+            )}
+          </div>
+
+          {/* Scheduled Date */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Scheduled Date
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Calendar className="w-4 h-4 text-gray-400" />
+              </div>
+              <input
+                type="datetime-local"
+                {...register("scheduledDate")}
+                className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all hover:border-gray-300"
+              />
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              Leave empty to make it active immediately
+            </p>
+          </div>
+
+          {/* Status */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Status *
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <label className={`relative flex items-center justify-center p-4 border-2 rounded-xl cursor-pointer transition-all ${watch('status') === 'pending'
+                  ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                  : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                }`}>
+                <input
+                  type="radio"
+                  value="pending"
+                  {...register("status", { required: "Status is required" })}
+                  className="sr-only"
+                />
+                <div className="text-center">
+                  <div className="w-8 h-8 mx-auto mb-2 rounded-full bg-orange-100 flex items-center justify-center">
+                    <Calendar className="w-4 h-4 text-orange-600" />
+                  </div>
+                  <span className="text-sm font-medium">Scheduled</span>
+                </div>
+              </label>
+
+              <label className={`relative flex items-center justify-center p-4 border-2 rounded-xl cursor-pointer transition-all ${watch('status') === 'active'
+                  ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                  : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                }`}>
+                <input
+                  type="radio"
+                  value="active"
+                  {...register("status", { required: "Status is required" })}
+                  className="sr-only"
+                />
+                <div className="text-center">
+                  <div className="w-8 h-8 mx-auto mb-2 rounded-full bg-green-100 flex items-center justify-center">
+                    <Play className="w-4 h-4 text-green-600" />
+                  </div>
+                  <span className="text-sm font-medium">Active</span>
+                </div>
+              </label>
+            </div>
+            {errors.status && (
+              <p className="text-red-500 text-sm mt-2">{errors.status.message}</p>
+            )}
+          </div>
+
+          {/* Video Preview */}
+          {watch('goalLink') && !errors.goalLink && (
+            <div className="bg-gray-50 rounded-xl p-4">
+              <h4 className="text-sm font-medium text-gray-700 mb-3">Video Preview</h4>
+              <div className="aspect-video bg-gray-200 rounded-lg flex items-center justify-center">
+                <div className="text-center">
+                  <Play className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-xs text-gray-500">Video will appear here</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex gap-3 pt-4">
+            <button
+              type="button"
+              onClick={handleClose}
+              disabled={loading}
+              className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 px-6 py-3 bg-emerald-500 text-white rounded-xl font-medium hover:bg-emerald-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4" />
+                  Add Goal
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 function Insights() {
   // Revenue chart data
@@ -36,9 +274,10 @@ function Insights() {
   const [revenueTimeframe, setRevenueTimeframe] = useState('Today');
   const [matchesTimeframe, setMatchesTimeframe] = useState('Today');
 
-  // Goal of the Week demo data
+  // Goal of the Week state
   const [playingVideo, setPlayingVideo] = useState(null);
-  const goalVideos = [
+  const [isAddGoalModalOpen, setIsAddGoalModalOpen] = useState(false);
+  const [goalVideos, setGoalVideos] = useState([
     {
       id: 1,
       title: 'Active',
@@ -60,14 +299,27 @@ function Insights() {
       videoUrl: 'https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4',
       isActive: false
     }
-  ];
+  ]);
 
   const handlePlayVideo = (videoId) => {
     setPlayingVideo(videoId);
   };
 
   const handleAddGoal = () => {
-    console.log('Add Goal of the Week');
+    setIsAddGoalModalOpen(true);
+  };
+
+  const handleGoalAdded = (newGoal) => {
+    // Add the new goal to the list
+    const newGoalVideo = {
+      id: goalVideos.length + 1,
+      title: newGoal.status === 'active' ? 'Active' : `Scheduled: ${new Date(newGoal.scheduledDate).toLocaleDateString()}`,
+      thumbnail: 'https://images.unsplash.com/photo-1575361204480-aadea25e6e68?w=400&h=250&fit=crop',
+      videoUrl: newGoal.goalLink,
+      isActive: newGoal.status === 'active'
+    };
+
+    setGoalVideos(prev => [newGoalVideo, ...prev]);
   };
 
   // Custom dropdown component
@@ -286,9 +538,15 @@ function Insights() {
           </ResponsiveContainer>
         </div>
       </div>
+
+      {/* Add Goal Modal */}
+      <AddGoalModal
+        isOpen={isAddGoalModalOpen}
+        onClose={() => setIsAddGoalModalOpen(false)}
+        onGoalAdded={handleGoalAdded}
+      />
     </div>
   );
 }
 
 export default Insights;
-

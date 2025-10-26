@@ -9,6 +9,7 @@ import Payments from "./components/Payments";
 import Insights from "./components/Insights";
 import Settings from "./components/Settings";
 import Login from "./components/Login";
+import AdMinPrivate from "./private/Admin";
 
 function App() {
   return (
@@ -18,13 +19,13 @@ function App() {
         <Route path="/login" element={<Login />} />
         {/* Routes with layout */}
         <Route path="/" element={<Layout />}>
-          <Route index element={<Dashboard />} />
-          <Route path="products" element={<Products />} />
-          <Route path="organizers" element={<Organizers />} />
-          <Route path="tournaments" element={<Tournaments />} />
-          <Route path="user-management" element={<UserManagement />} />
-          <Route path="payments" element={<Payments />} />
-          <Route path="insights" element={<Insights />} />
+          <Route index element={<AdMinPrivate><Dashboard /></AdMinPrivate>} />
+          <Route path="products" element={<AdMinPrivate><Products /></AdMinPrivate>} />
+          <Route path="organizers" element={<AdMinPrivate><Organizers /></AdMinPrivate>} />
+          <Route path="tournaments" element={<AdMinPrivate><Tournaments /></AdMinPrivate>} />
+          <Route path="user-management" element={<AdMinPrivate><UserManagement /></AdMinPrivate>} />
+          <Route path="payments" element={<AdMinPrivate><Payments /></AdMinPrivate>} />
+          <Route path="insights" element={<AdMinPrivate><Insights /></AdMinPrivate>} />
           <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>
