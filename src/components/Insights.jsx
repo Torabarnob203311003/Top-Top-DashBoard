@@ -1,8 +1,62 @@
-import React, { useState } from 'react';
-import { ChevronDown, Play, Plus, X, Calendar, Link } from 'lucide-react';
+/* eslint-disable no-useless-escape */
+import React, { useState, useEffect } from 'react';
+import { ChevronDown, Play, Plus, X, Calendar, Link, Trash2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend } from 'recharts';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
+
+// Utility functions for different video platforms
+const getYouTubeVideoId = (url) => {
+  const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+  return match ? match[1] : null;
+};
+
+const getVimeoVideoId = (url) => {
+  const match = url.match(/(?:vimeo\.com\/|player\.vimeo\.com\/video\/)([0-9]+)/);
+  return match ? match[1] : null;
+};
+
+const isYouTubeLink = (url) => {
+  return url.includes('youtube.com') || url.includes('youtu.be');
+};
+
+const isVimeoLink = (url) => {
+  return url.includes('vimeo.com');
+};
+
+const isDirectVideoLink = (url) => {
+  return url.match(/\.(mp4|webm|ogg|mov|avi|wmv|flv|mkv)$/i);
+};
+
+const getVideoThumbnail = (url) => {
+  if (isYouTubeLink(url)) {
+    const videoId = getYouTubeVideoId(url);
+    return videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : null;
+  }
+
+  if (isVimeoLink(url)) {
+    const videoId = getVimeoVideoId(url);
+    return videoId ? `https://vumbnail.com/${videoId}.jpg` : null;
+  }
+
+  // For direct video links, we can't generate thumbnail, will use fallback
+  return null;
+};
+
+const getVideoEmbedUrl = (url) => {
+  if (isYouTubeLink(url)) {
+    const videoId = getYouTubeVideoId(url);
+    return videoId ? `https://www.youtube.com/embed/${videoId}?autoplay=1` : null;
+  }
+
+  if (isVimeoLink(url)) {
+    const videoId = getVimeoVideoId(url);
+    return videoId ? `https://player.vimeo.com/video/${videoId}?autoplay=1` : null;
+  }
+
+  // For direct video links, return the original URL
+  return url;
+};
 
 // Modal Component
 function AddGoalModal({ isOpen, onClose, onGoalAdded }) {
@@ -23,26 +77,45 @@ function AddGoalModal({ isOpen, onClose, onGoalAdded }) {
     }
   });
 
+  const watchGoalLink = watch('goalLink');
+  const videoType = watchGoalLink ?
+    (isYouTubeLink(watchGoalLink) ? 'youtube' :
+      isVimeoLink(watchGoalLink) ? 'vimeo' :
+        isDirectVideoLink(watchGoalLink) ? 'direct' : 'unknown') : 'none';
+
   const onSubmit = async (data) => {
     setLoading(true);
 
     try {
-      // Here you would typically send data to your API
-      console.log('Goal data:', data);
-
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
       const goalData = {
-        ...data,
+        goalTitle: data.goalTitle,
+        goalLink: data.goalLink,
         scheduledDate: data.scheduledDate ? new Date(data.scheduledDate).toISOString() : null,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        status: data.status,
+        isScheduled: data.scheduledDate ? true : false,
+        videoType: videoType,
+        videoId: getYouTubeVideoId(data.goalLink) || getVimeoVideoId(data.goalLink)
       };
+
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch('http://localhost:5000/api/v1/goal/create-goal', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `${token}`
+        },
+        body: JSON.stringify(goalData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create goal');
+      }
+
+      const result = await response.json();
 
       toast.success('Goal added successfully!');
       reset();
-      onGoalAdded(goalData);
+      onGoalAdded(result.data);
       onClose();
     } catch (error) {
       console.error('Error adding goal:', error);
@@ -109,12 +182,19 @@ function AddGoalModal({ isOpen, onClose, onGoalAdded }) {
               </div>
               <input
                 type="url"
-                placeholder="https://example.com/video.mp4"
+                placeholder="https://www.youtube.com/watch?v=... or https://vimeo.com/... or https://example.com/video.mp4"
                 {...register("goalLink", {
                   required: "Video link is required",
                   pattern: {
                     value: /^(https?:\/\/).+/,
                     message: "Please enter a valid URL"
+                  },
+                  validate: {
+                    validVideo: (value) => {
+                      if (!value) return true;
+                      return isYouTubeLink(value) || isVimeoLink(value) || isDirectVideoLink(value) ||
+                        "Please enter a valid YouTube, Vimeo, or direct video link (mp4, webm, etc.)";
+                    }
                   }
                 })}
                 className={`w-full pl-10 pr-4 py-3 bg-white border rounded-xl text-sm text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all ${errors.goalLink ? 'border-red-500' : 'border-gray-200 hover:border-gray-300'
@@ -124,7 +204,40 @@ function AddGoalModal({ isOpen, onClose, onGoalAdded }) {
             {errors.goalLink && (
               <p className="text-red-500 text-sm mt-2">{errors.goalLink.message}</p>
             )}
+            <p className="text-xs text-gray-500 mt-2">
+              Supported: YouTube, Vimeo, and direct video links (MP4, WebM, etc.)
+            </p>
           </div>
+
+          {/* Video Preview */}
+            {/* {watchGoalLink && !errors.goalLink && (
+              <div className="bg-gray-50 rounded-xl p-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-3">Video Preview</h4>
+                <div className="aspect-video bg-gray-200 rounded-lg flex items-center justify-center overflow-hidden">
+                  {videoType === 'youtube' || videoType === 'vimeo' ? (
+                    <img
+                      src={getVideoThumbnail(watchGoalLink)}
+                      alt="Video thumbnail"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <div className={`text-center ${videoType === 'youtube' || videoType === 'vimeo' ? 'hidden' : 'flex flex-col items-center justify-center w-full h-full'}`}>
+                    <Play className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-xs text-gray-500">
+                      {videoType === 'direct' ? 'Direct Video Link' :
+                        videoType === 'unknown' ? 'Video Preview' : 'Video will appear here'}
+                    </p>
+                    {videoType === 'youtube' && <span className="text-xs text-red-500 mt-1">YouTube</span>}
+                    {videoType === 'vimeo' && <span className="text-xs text-blue-500 mt-1">Vimeo</span>}
+                    {videoType === 'direct' && <span className="text-xs text-green-500 mt-1">Direct Video</span>}
+                  </div>
+                </div>
+              </div>
+            )} */}
 
           {/* Scheduled Date */}
           <div>
@@ -153,8 +266,8 @@ function AddGoalModal({ isOpen, onClose, onGoalAdded }) {
             </label>
             <div className="grid grid-cols-2 gap-3">
               <label className={`relative flex items-center justify-center p-4 border-2 rounded-xl cursor-pointer transition-all ${watch('status') === 'pending'
-                  ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                  : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
                 }`}>
                 <input
                   type="radio"
@@ -171,8 +284,8 @@ function AddGoalModal({ isOpen, onClose, onGoalAdded }) {
               </label>
 
               <label className={`relative flex items-center justify-center p-4 border-2 rounded-xl cursor-pointer transition-all ${watch('status') === 'active'
-                  ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                  : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
                 }`}>
                 <input
                   type="radio"
@@ -192,19 +305,6 @@ function AddGoalModal({ isOpen, onClose, onGoalAdded }) {
               <p className="text-red-500 text-sm mt-2">{errors.status.message}</p>
             )}
           </div>
-
-          {/* Video Preview */}
-          {watch('goalLink') && !errors.goalLink && (
-            <div className="bg-gray-50 rounded-xl p-4">
-              <h4 className="text-sm font-medium text-gray-700 mb-3">Video Preview</h4>
-              <div className="aspect-video bg-gray-200 rounded-lg flex items-center justify-center">
-                <div className="text-center">
-                  <Play className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-xs text-gray-500">Video will appear here</p>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Action Buttons */}
           <div className="flex gap-3 pt-4">
@@ -237,6 +337,77 @@ function AddGoalModal({ isOpen, onClose, onGoalAdded }) {
         </form>
       </div>
     </div>
+  );
+}
+
+// Video Player Component
+function VideoPlayer({ video, isPlaying, onPlay, onEnded }) {
+  const videoType = video.videoType ||
+    (isYouTubeLink(video.goalLink) ? 'youtube' :
+      isVimeoLink(video.goalLink) ? 'vimeo' :
+        isDirectVideoLink(video.goalLink) ? 'direct' : 'unknown');
+
+  if (!isPlaying) {
+    return (
+      <>
+        {getVideoThumbnail(video.goalLink) ? (
+          <img
+            src={getVideoThumbnail(video.goalLink)}
+            alt={video.goalTitle}
+            className="w-full h-full object-cover rounded-xl transition-transform duration-300 ease-in-out"
+          />
+        ) : (
+          <div className="w-full h-full bg-gray-200 flex items-center justify-center rounded-xl">
+            <div className="text-center">
+              <Play className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+              <p className="text-xs text-gray-500">
+                {videoType === 'youtube' ? 'YouTube Video' :
+                  videoType === 'vimeo' ? 'Vimeo Video' :
+                    videoType === 'direct' ? 'Video File' : 'Video'}
+              </p>
+            </div>
+          </div>
+        )}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <button
+            onClick={onPlay}
+            className="w-12 h-12 rounded-full bg-black bg-opacity-50 flex items-center justify-center transition-colors duration-300 ease-in-out hover:bg-opacity-70"
+          >
+            <Play className="w-6 h-6 text-white" />
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  // When playing, show the appropriate player
+  if (videoType === 'youtube' || videoType === 'vimeo') {
+    const embedUrl = getVideoEmbedUrl(video.goalLink);
+    return (
+      <iframe
+        src={embedUrl}
+        className="w-full h-full rounded-xl"
+        frameBorder="0"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+        title={video.goalTitle}
+      />
+    );
+  }
+
+  // For direct video links
+  return (
+    <video
+      className="w-full h-full object-cover rounded-xl"
+      controls
+      autoPlay
+      onEnded={onEnded}
+    >
+      <source src={video.goalLink} type="video/mp4" />
+      <source src={video.goalLink} type="video/webm" />
+      <source src={video.goalLink} type="video/ogg" />
+      Your browser does not support the video tag.
+    </video>
   );
 }
 
@@ -277,32 +448,40 @@ function Insights() {
   // Goal of the Week state
   const [playingVideo, setPlayingVideo] = useState(null);
   const [isAddGoalModalOpen, setIsAddGoalModalOpen] = useState(false);
-  const [goalVideos, setGoalVideos] = useState([
-    {
-      id: 1,
-      title: 'Active',
-      thumbnail: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=400&h=250&fit=crop',
-      videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
-      isActive: true
-    },
-    {
-      id: 2,
-      title: 'Scheduled: 04/16/25',
-      thumbnail: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=400&h=250&fit=crop',
-      videoUrl: 'https://www.w3schools.com/html/movie.mp4',
-      isActive: false
-    },
-    {
-      id: 3,
-      title: 'Scheduled: 04/16/25',
-      thumbnail: 'https://images.unsplash.com/photo-1543351611-58f69d7c1781?w=400&h=250&fit=crop',
-      videoUrl: 'https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4',
-      isActive: false
+  const [goalVideos, setGoalVideos] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch goals on component mount
+  useEffect(() => {
+    fetchGoals();
+  }, []);
+
+  const fetchGoals = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('http://localhost:5000/api/v1/goal/all-goal');
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch goals');
+      }
+
+      const result = await response.json();
+      setGoalVideos(result.data || []);
+    } catch (error) {
+      console.error('Error fetching goals:', error);
+      toast.error('Failed to load goals');
+      setGoalVideos([]);
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
 
   const handlePlayVideo = (videoId) => {
     setPlayingVideo(videoId);
+  };
+
+  const handleVideoEnded = () => {
+    setPlayingVideo(null);
   };
 
   const handleAddGoal = () => {
@@ -310,16 +489,33 @@ function Insights() {
   };
 
   const handleGoalAdded = (newGoal) => {
-    // Add the new goal to the list
-    const newGoalVideo = {
-      id: goalVideos.length + 1,
-      title: newGoal.status === 'active' ? 'Active' : `Scheduled: ${new Date(newGoal.scheduledDate).toLocaleDateString()}`,
-      thumbnail: 'https://images.unsplash.com/photo-1575361204480-aadea25e6e68?w=400&h=250&fit=crop',
-      videoUrl: newGoal.goalLink,
-      isActive: newGoal.status === 'active'
-    };
+    setGoalVideos(prev => [newGoal, ...prev]);
+  };
 
-    setGoalVideos(prev => [newGoalVideo, ...prev]);
+  const handleDeleteGoal = async (goalId) => {
+    if (!window.confirm('Are you sure you want to delete this goal?')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`http://localhost:5000/api/v1/goal/delete-goal/${goalId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete goal');
+      }
+
+      setGoalVideos(prev => prev.filter(goal => goal._id !== goalId));
+      toast.success('Goal deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting goal:', error);
+      toast.error('Failed to delete goal. Please try again.');
+    }
   };
 
   // Custom dropdown component
@@ -361,6 +557,39 @@ function Insights() {
     return `$${value}`;
   };
 
+  // Format goal title based on status and scheduled date
+  const formatGoalTitle = (goal) => {
+    if (goal.status === 'active') {
+      return goal.goalTitle || 'Active Goal';
+    }
+    if (goal.scheduledDate) {
+      const date = new Date(goal.scheduledDate);
+      return `${goal.goalTitle} - Scheduled: ${date.toLocaleDateString()}`;
+    }
+    return goal.goalTitle || 'Goal';
+  };
+
+  const getVideoTypeBadge = (video) => {
+    const videoType = video.videoType ||
+      (isYouTubeLink(video.goalLink) ? 'youtube' :
+        isVimeoLink(video.goalLink) ? 'vimeo' :
+          isDirectVideoLink(video.goalLink) ? 'direct' : 'unknown');
+
+    const badges = {
+      youtube: { color: 'bg-red-100 text-red-600', text: 'YouTube' },
+      vimeo: { color: 'bg-blue-100 text-blue-600', text: 'Vimeo' },
+      direct: { color: 'bg-green-100 text-green-600', text: 'Video File' },
+      unknown: { color: 'bg-gray-100 text-gray-600', text: 'Video' }
+    };
+
+    const badge = badges[videoType] || badges.unknown;
+    return (
+      <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${badge.color}`}>
+        {badge.text}
+      </span>
+    );
+  };
+
   return (
     <div className="bg-white min-h-screen p-8">
       {/* Goal of the Week Section */}
@@ -375,53 +604,54 @@ function Insights() {
             Add Goal of the Week
           </button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {goalVideos.map((video) => (
-            <div key={video.id} className="relative group">
-              <div className="relative aspect-video bg-gray-900 rounded-xl overflow-hidden">
-                {playingVideo === video.id ? (
-                  <video
-                    className="w-full h-full object-cover"
-                    controls
-                    autoPlay
-                    onEnded={() => setPlayingVideo(null)}
+
+        {loading ? (
+          <div className="flex justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+          </div>
+        ) : goalVideos.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-500">No goals found. Add your first goal!</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {goalVideos.map((video) => (
+              <div key={video._id} className="relative group">
+                <div className="relative aspect-video bg-gray-900 rounded-xl overflow-hidden">
+                  <VideoPlayer
+                    video={video}
+                    isPlaying={playingVideo === video._id}
+                    onPlay={() => handlePlayVideo(video._id)}
+                    onEnded={handleVideoEnded}
+                  />
+
+                  {/* Delete Button */}
+                  <button
+                    onClick={() => handleDeleteGoal(video._id)}
+                    className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-600"
                   >
-                    <source src={video.videoUrl} type="video/mp4" />
-                    Your browser does not support the video tag.
-                  </video>
-                ) : (
-                  <>
-                    <img
-                      src={video.thumbnail}
-                      alt={video.title}
-                      className="w-full h-full object-cover rounded-xl transition-transform duration-300 ease-in-out"
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <button
-                        onClick={() => handlePlayVideo(video.id)}
-                        className="w-12 h-12 rounded-full bg-black bg-opacity-50 flex items-center justify-center transition-colors duration-300 ease-in-out hover:bg-opacity-70"
-                      >
-                        <Play className="w-6 h-6 text-white" />
-                      </button>
-                    </div>
-                  </>
-                )}
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+                <h3 className="mt-4 text-sm font-semibold text-gray-800 truncate">
+                  {formatGoalTitle(video)}
+                </h3>
+                <div className="mt-2 flex items-center gap-2">
+                  {video.status === 'active' ? (
+                    <span className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-emerald-100 text-emerald-600">
+                      Active
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
+                      Scheduled
+                    </span>
+                  )}
+                  {getVideoTypeBadge(video)}
+                </div>
               </div>
-              <h3 className="mt-4 text-sm font-semibold text-gray-800 truncate">{video.title}</h3>
-              <div className="mt-2">
-                {video.isActive ? (
-                  <span className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-emerald-100 text-emerald-600">
-                    Active
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
-                    Scheduled
-                  </span>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Revenue Chart Section */}
