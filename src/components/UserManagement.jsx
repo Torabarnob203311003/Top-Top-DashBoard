@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Search, Ban, CheckCircle, Trash2, Loader } from 'lucide-react';
+import { Plus, Search, Ban, CheckCircle, Trash2, Loader, Filter, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 function UserManagement() {
@@ -7,6 +7,8 @@ function UserManagement() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [actionLoading, setActionLoading] = useState(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [positionFilter, setPositionFilter] = useState("all");
 
   // Fetch users from API
   useEffect(() => {
@@ -122,16 +124,73 @@ function UserManagement() {
     }
   };
 
-  // const handleAddUser = () => {
-  //   console.log('Add new user');
-  // };
+  // Extract all unique positions from users
+  const getAllPositions = () => {
+    const allPositions = new Set();
 
-  // Filter users based on search term
-  const filteredUsers = users.filter(user =>
-    user.FullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.role?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+    users.forEach(user => {
+      if (user.position && Array.isArray(user.position)) {
+        user.position.forEach(pos => {
+          if (pos && pos !== 'N/A' && pos.trim() !== '') {
+            allPositions.add(pos);
+          }
+        });
+      }
+      // Also check matchPosition field
+      if (user.matchPosition && user.matchPosition !== 'N/A' && user.matchPosition.trim() !== '') {
+        allPositions.add(user.matchPosition);
+      }
+    });
+
+    return Array.from(allPositions).sort();
+  };
+
+  // Get position count for each position
+  const getPositionCounts = () => {
+    const counts = {};
+
+    users.forEach(user => {
+      // Count positions from position array
+      if (user.position && Array.isArray(user.position)) {
+        user.position.forEach(pos => {
+          if (pos && pos !== 'N/A' && pos.trim() !== '') {
+            counts[pos] = (counts[pos] || 0) + 1;
+          }
+        });
+      }
+
+      // Count matchPosition
+      if (user.matchPosition && user.matchPosition !== 'N/A' && user.matchPosition.trim() !== '') {
+        counts[user.matchPosition] = (counts[user.matchPosition] || 0) + 1;
+      }
+    });
+
+    return counts;
+  };
+
+  // Filter users based on search term and position filter
+  const filteredUsers = users.filter(user => {
+    // Search filter
+    const matchesSearch =
+      user.FullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.role?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    // Position filter
+    const matchesPosition = positionFilter === "all" ||
+      (user.position && Array.isArray(user.position) && user.position.includes(positionFilter)) ||
+      user.matchPosition === positionFilter;
+
+    return matchesSearch && matchesPosition;
+  });
+
+  // Get users by position for the counter
+  const getUsersByPosition = (position) => {
+    return users.filter(user =>
+      (user.position && Array.isArray(user.position) && user.position.includes(position)) ||
+      user.matchPosition === position
+    );
+  };
 
   // Get status badge color
   const getStatusColor = (status) => {
@@ -154,6 +213,24 @@ function UserManagement() {
     }
   };
 
+  // Format position display
+  const formatPosition = (user) => {
+    const positions = [];
+
+    if (user.position && Array.isArray(user.position) && user.position.length > 0) {
+      positions.push(...user.position.filter(pos => pos && pos !== 'N/A'));
+    }
+
+    if (user.matchPosition && user.matchPosition !== 'N/A') {
+      positions.push(user.matchPosition);
+    }
+
+    return positions.length > 0 ? positions.join(', ') : 'Not specified';
+  };
+
+  const allPositions = getAllPositions();
+  const positionCounts = getPositionCounts();
+
   if (loading) {
     return (
       <div className="p-6 bg-gray-50 min-h-screen flex items-center justify-center">
@@ -174,16 +251,25 @@ function UserManagement() {
             <h1 className="text-xl font-semibold text-gray-900">User Management</h1>
             <p className="text-sm text-gray-600 mt-1">
               Total {filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''}
+              {positionFilter !== "all" && ` in ${positionFilter} position`}
             </p>
           </div>
           <div className="flex items-center gap-3">
-            {/* <button
-              onClick={handleAddUser}
-              className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${showFilters || positionFilter !== "all"
+                  ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
             >
-              <Plus className="w-4 h-4" />
-              Add User
-            </button> */}
+              <Filter className="w-4 h-4" />
+              Filter
+              {(positionFilter !== "all") && (
+                <span className="bg-emerald-500 text-white text-xs px-2 py-1 rounded-full">
+                  {positionCounts[positionFilter] || 0}
+                </span>
+              )}
+            </button>
             <div className="relative">
               <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
               <input
@@ -197,6 +283,94 @@ function UserManagement() {
           </div>
         </div>
 
+        {/* Position Filter Section */}
+        {showFilters && (
+          <div className="bg-gray-50 p-4 border-b border-gray-200">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-medium text-gray-900">Filter by Position</h3>
+              <button
+                onClick={() => {
+                  setPositionFilter("all");
+                  setShowFilters(false);
+                }}
+                className="text-xs text-gray-500 hover:text-gray-700 flex items-center"
+              >
+                <X className="w-3 h-3 mr-1" />
+                Clear
+              </button>
+            </div>
+
+            {/* Position Counters */}
+            <div className="mb-4">
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setPositionFilter("all")}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${positionFilter === "all"
+                      ? 'bg-emerald-500 text-white'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                    }`}
+                >
+                  All Positions ({users.length})
+                </button>
+
+                {allPositions.map(position => (
+                  <button
+                    key={position}
+                    onClick={() => setPositionFilter(position)}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${positionFilter === position
+                        ? 'bg-emerald-500 text-white'
+                        : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                      }`}
+                  >
+                    {position}
+                    <span className={`text-xs px-1.5 py-0.5 rounded-full ${positionFilter === position
+                        ? 'bg-emerald-400 text-white'
+                        : 'bg-gray-200 text-gray-700'
+                      }`}>
+                      {positionCounts[position] || 0}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Position Statistics */}
+            {positionFilter !== "all" && (
+              <div className="bg-white p-3 rounded-lg border border-gray-200">
+                <h4 className="text-sm font-medium text-gray-900 mb-2">
+                  {positionFilter} Position Statistics
+                </h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-emerald-600">
+                      {getUsersByPosition(positionFilter).length}
+                    </div>
+                    <div className="text-gray-600">Total Users</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-blue-600">
+                      {getUsersByPosition(positionFilter).filter(u => u.role === 'player').length}
+                    </div>
+                    <div className="text-gray-600">Players</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-purple-600">
+                      {getUsersByPosition(positionFilter).filter(u => u.role === 'organizer').length}
+                    </div>
+                    <div className="text-gray-600">Organizers</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-green-600">
+                      {getUsersByPosition(positionFilter).filter(u => u.isBlocked === 'active').length}
+                    </div>
+                    <div className="text-gray-600">Active</div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Table */}
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -205,6 +379,7 @@ function UserManagement() {
                 <th className="text-left py-3 px-6 font-medium text-gray-700">User</th>
                 <th className="text-left py-3 px-6 font-medium text-gray-700">Email</th>
                 <th className="text-left py-3 px-6 font-medium text-gray-700">Phone</th>
+                <th className="text-left py-3 px-6 font-medium text-gray-700">Position</th>
                 <th className="text-left py-3 px-6 font-medium text-gray-700">Role</th>
                 <th className="text-left py-3 px-6 font-medium text-gray-700">Status</th>
                 <th className="text-left py-3 px-6 font-medium text-gray-700">Actions</th>
@@ -236,6 +411,11 @@ function UserManagement() {
                     {user.mobile && user.mobile !== 'N/A' ? user.mobile : 'Not provided'}
                   </td>
                   <td className="py-4 px-6">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                      {formatPosition(user)}
+                    </span>
+                  </td>
+                  <td className="py-4 px-6">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getRoleColor(user.role)}`}>
                       {user.role}
                     </span>
@@ -252,8 +432,8 @@ function UserManagement() {
                         onClick={() => handleBlockToggle(user._id, user.isBlocked)}
                         disabled={actionLoading === `block-${user._id}`}
                         className={`p-2 rounded-lg transition-colors ${user.isBlocked === 'active'
-                            ? 'text-orange-600 hover:bg-orange-50 hover:text-orange-700'
-                            : 'text-green-600 hover:bg-green-50 hover:text-green-700'
+                          ? 'text-orange-600 hover:bg-orange-50 hover:text-orange-700'
+                          : 'text-green-600 hover:bg-green-50 hover:text-green-700'
                           } ${actionLoading === `block-${user._id}` ? 'opacity-50 cursor-not-allowed' : ''}`}
                         title={user.isBlocked === 'active' ? 'Block user' : 'Unblock user'}
                       >
@@ -289,7 +469,11 @@ function UserManagement() {
 
           {filteredUsers.length === 0 && (
             <div className="text-center py-8">
-              <p className="text-gray-500">No users found</p>
+              <p className="text-gray-500">
+                {positionFilter !== "all"
+                  ? `No users found for position "${positionFilter}"`
+                  : "No users found"}
+              </p>
             </div>
           )}
         </div>

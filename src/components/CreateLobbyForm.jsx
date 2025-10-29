@@ -152,15 +152,15 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
       console.log('Place details response:', data);
 
       // Different possible response structures handle korchi
-      if (data.result && data.result.geometry && data.result.geometry.location) {
+      if (data) {
         // Google API structure
-        const { lat, lng } = data.result.geometry.location;
-        const address = data.result.formatted_address || data.result.name || "Selected Location";
+        const { lat, lng,address } = data;
+ 
         setFormData(prev => ({
           ...prev,
           location: { lat, lng, address }
         }));
-        setLocationSearch(address);
+        setLocationSearch(data.address);
         setShowSuggestions(false);
       } else if (data.location && data.location.lat && data.location.lng) {
         // Custom backend structure

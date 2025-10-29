@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Loader, MapPin, Clock, Users, DollarSign, Circle, Video, Shield, Key, Gavel, Lock, Unlock } from 'lucide-react';
+import { Search, Plus, Loader, MapPin, Clock, Users, DollarSign, Circle, Video, Shield, Key, Gavel, Lock, Unlock, Trash2, X } from 'lucide-react';
 import CreateLobbyForm from './CreateLobbyForm';
 import { jwtDecode } from 'jwt-decode';
 
@@ -11,6 +11,8 @@ function Products() {
   const [error, setError] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [updatingLobby, setUpdatingLobby] = useState(null);
+  const [deletingLobby, setDeletingLobby] = useState(null);
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, lobby: null });
 
   // Decode token and get user role
   useEffect(() => {
@@ -129,6 +131,60 @@ function Products() {
     }
   };
 
+  // Delete lobby function
+  const deleteLobby = async (lobbyId) => {
+    try {
+      setDeletingLobby(lobbyId);
+      const token = localStorage.getItem('accessToken');
+
+      if (!token) {
+        alert('Authentication required');
+        return;
+      }
+
+      const response = await fetch(`http://localhost:5000/api/v1/lobby/delete/${lobbyId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Remove lobby from local state
+        setLobbies(prevLobbies => prevLobbies.filter(lobby => lobby._id !== lobbyId));
+
+        // Close modal and show success message
+        setDeleteModal({ isOpen: false, lobby: null });
+        alert('Lobby deleted successfully!');
+      } else {
+        throw new Error(result.message || 'Failed to delete lobby');
+      }
+    } catch (err) {
+      console.error('Error deleting lobby:', err);
+      alert(`Error: ${err.message}`);
+      setDeleteModal({ isOpen: false, lobby: null });
+    } finally {
+      setDeletingLobby(null);
+    }
+  };
+
+  // Open delete confirmation modal
+  const openDeleteModal = (lobby) => {
+    setDeleteModal({ isOpen: true, lobby });
+  };
+
+  // Close delete confirmation modal
+  const closeDeleteModal = () => {
+    setDeleteModal({ isOpen: false, lobby: null });
+  };
+
   // Format date for display
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -181,12 +237,20 @@ function Products() {
       .slice(0, 2);
   };
 
-  // Calculate joined players count
   const getJoinedCount = (lobby) => {
-    const team1Count = lobby.team1Players?.length || 0;
-    const team2Count = lobby.team2Players?.length || 0;
-    const total = team1Count + team2Count;
-    return `${total}/${lobby.maxSlot || 'N/A'}`;
+    let totalPlayers = 0;
+
+    if (lobby.matchType === 'teams') {
+      const team1Count = lobby.team1?.players?.length || 0;
+      const team2Count = lobby.team2?.players?.length || 0;
+      totalPlayers = team1Count + team2Count;
+    } else if (lobby.matchType === 'solo') {
+      const defaultTeam1Count = lobby.defaultTeam1Players?.length || 0;
+      const defaultTeam2Count = lobby.defaultTeam2Players?.length || 0;
+      totalPlayers = defaultTeam1Count + defaultTeam2Count;
+    }
+
+    return `${totalPlayers}/${lobby.maxSlot || 'N/A'}`;
   };
 
   // Get category based on team size
@@ -240,6 +304,88 @@ function Products() {
     lobby.location?.address?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Delete Confirmation Modal Component
+  const DeleteConfirmationModal = () => {
+    if (!deleteModal.isOpen || !deleteModal.lobby) return null;
+
+    const { lobby } = deleteModal;
+    const team1Name = getTeam1Name(lobby);
+    const team2Name = getTeam2Name(lobby);
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg max-w-md w-full p-6">
+          {/* Modal Header */}
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-red-600 flex items-center">
+              <Trash2 className="w-5 h-5 mr-2" />
+              Delete Lobby
+            </h3>
+            <button
+              onClick={closeDeleteModal}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+              disabled={deletingLobby}
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Modal Content */}
+          <div className="mb-6">
+            <p className="text-gray-700 mb-3">
+              Are you sure you want to delete this lobby? This action cannot be undone.
+            </p>
+
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <h4 className="font-semibold text-gray-900 mb-2">{lobby.title}</h4>
+              <div className="text-sm text-gray-600 space-y-1">
+                <p><strong>Match:</strong> {team1Name} vs {team2Name}</p>
+                <p><strong>Date:</strong> {formatDate(lobby.date)}</p>
+                <p><strong>Time:</strong> {formatTime(lobby.time)}</p>
+                <p><strong>Location:</strong> {lobby.location?.address || 'N/A'}</p>
+                <p><strong>Status:</strong> <span className="capitalize">{getStatusText(lobby.lobbyStatus)}</span></p>
+              </div>
+            </div>
+
+            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-sm text-yellow-800">
+                <strong>Warning:</strong> This will permanently delete the lobby and all associated data.
+              </p>
+            </div>
+          </div>
+
+          {/* Modal Actions */}
+          <div className="flex justify-end space-x-3">
+            <button
+              onClick={closeDeleteModal}
+              disabled={deletingLobby}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => deleteLobby(lobby._id)}
+              disabled={deletingLobby}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center space-x-2"
+            >
+              {deletingLobby ? (
+                <>
+                  <Loader className="w-4 h-4 animate-spin" />
+                  <span>Deleting...</span>
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete Lobby</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (showCreate) {
     return (
       <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
@@ -281,6 +427,9 @@ function Products() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal />
+
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -338,6 +487,7 @@ function Products() {
               const team2Name = getTeam2Name(lobby);
               const isBlocked = lobby.lobbyStatus === 'block';
               const isUpdating = updatingLobby === lobby._id;
+              const isDeleting = deletingLobby === lobby._id;
 
               return (
                 <div
@@ -452,7 +602,7 @@ function Products() {
                     </div>
                     <div className="flex items-center space-x-2">
                       <DollarSign className="w-4 h-4 text-yellow-500" />
-                      <span className="text-gray-700">${lobby.price || 0}</span>
+                      <span className="text-gray-700">{lobby.price || 0}</span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Users className="w-4 h-4 text-green-500" />
@@ -511,25 +661,43 @@ function Products() {
                       Organized by: <span className="font-medium">{lobby.organizerData?.FullName || 'Unknown Organizer'}</span>
                     </p>
 
-                    {/* Block/Unblock Button (Admin Only) */}
-                    {canManageLobbies && !isBlocked && (
-                      <button
-                        onClick={() => {
-                          if (window.confirm('Are you sure you want to block this lobby?')) {
-                            toggleLobbyBlock(lobby._id, lobby.lobbyStatus);
-                          }
-                        }}
-                        disabled={isUpdating}
-                        className="flex items-center space-x-1 px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded transition-colors disabled:opacity-50"
-                      >
-                        {isUpdating ? (
-                          <Loader className="w-3 h-3 animate-spin" />
-                        ) : (
-                          <Lock className="w-3 h-3" />
-                        )}
-                        <span>Block Lobby</span>
-                      </button>
-                    )}
+                    <div className="flex items-center space-x-2">
+                      {/* Block/Unblock Button (Admin Only) */}
+                      {canManageLobbies && !isBlocked && (
+                        <button
+                          onClick={() => {
+                            if (window.confirm('Are you sure you want to block this lobby?')) {
+                              toggleLobbyBlock(lobby._id, lobby.lobbyStatus);
+                            }
+                          }}
+                          disabled={isUpdating}
+                          className="flex items-center space-x-1 px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded transition-colors disabled:opacity-50"
+                        >
+                          {isUpdating ? (
+                            <Loader className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <Lock className="w-3 h-3" />
+                          )}
+                          <span>Block Lobby</span>
+                        </button>
+                      )}
+
+                      {/* Delete Button (Admin Only) */}
+                      {canManageLobbies && (
+                        <button
+                          onClick={() => openDeleteModal(lobby)}
+                          disabled={isDeleting}
+                          className="flex items-center space-x-1 px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded transition-colors disabled:opacity-50"
+                        >
+                          {isDeleting ? (
+                            <Loader className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-3 h-3" />
+                          )}
+                          <span>Delete</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
