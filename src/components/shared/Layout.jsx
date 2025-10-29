@@ -47,9 +47,9 @@ function Layout() {
           <NavLink to="/insights" className={({ isActive }) =>
             `p-2 rounded transition-colors ${isActive ? 'bg-[#2EDB95] text-white' : 'text-[#AEAEAE] hover:bg-[#2EDB95] hover:text-white'}`
           }>Insights</NavLink>
-          <NavLink to="/settings" className={({ isActive }) =>
+          {/* <NavLink to="/settings" className={({ isActive }) =>
             `p-2 rounded transition-colors ${isActive ? 'bg-[#2EDB95] text-white' : 'text-[#AEAEAE] hover:bg-[#2EDB95] hover:text-white'}`
-          }>Settings</NavLink>
+          }>Settings</NavLink> */}
 
           {/* Logout Button in Sidebar */}
           <button

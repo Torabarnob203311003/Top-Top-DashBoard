@@ -210,34 +210,34 @@ function AddGoalModal({ isOpen, onClose, onGoalAdded }) {
           </div>
 
           {/* Video Preview */}
-            {/* {watchGoalLink && !errors.goalLink && (
-              <div className="bg-gray-50 rounded-xl p-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">Video Preview</h4>
-                <div className="aspect-video bg-gray-200 rounded-lg flex items-center justify-center overflow-hidden">
-                  {videoType === 'youtube' || videoType === 'vimeo' ? (
-                    <img
-                      src={getVideoThumbnail(watchGoalLink)}
-                      alt="Video thumbnail"
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.nextSibling.style.display = 'flex';
-                      }}
-                    />
-                  ) : null}
-                  <div className={`text-center ${videoType === 'youtube' || videoType === 'vimeo' ? 'hidden' : 'flex flex-col items-center justify-center w-full h-full'}`}>
-                    <Play className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                    <p className="text-xs text-gray-500">
-                      {videoType === 'direct' ? 'Direct Video Link' :
-                        videoType === 'unknown' ? 'Video Preview' : 'Video will appear here'}
-                    </p>
-                    {videoType === 'youtube' && <span className="text-xs text-red-500 mt-1">YouTube</span>}
-                    {videoType === 'vimeo' && <span className="text-xs text-blue-500 mt-1">Vimeo</span>}
-                    {videoType === 'direct' && <span className="text-xs text-green-500 mt-1">Direct Video</span>}
-                  </div>
+          {watchGoalLink && !errors.goalLink && (
+            <div className="bg-gray-50 rounded-xl p-4">
+              <h4 className="text-sm font-medium text-gray-700 mb-3">Video Preview</h4>
+              <div className="aspect-video bg-gray-200 rounded-lg flex items-center justify-center overflow-hidden">
+                {videoType === 'youtube' || videoType === 'vimeo' ? (
+                  <img
+                    src={getVideoThumbnail(watchGoalLink)}
+                    alt="Video thumbnail"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'flex';
+                    }}
+                  />
+                ) : null}
+                <div className={`text-center ${videoType === 'youtube' || videoType === 'vimeo' ? 'hidden' : 'flex flex-col items-center justify-center w-full h-full'}`}>
+                  <Play className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-xs text-gray-500">
+                    {videoType === 'direct' ? 'Direct Video Link' :
+                      videoType === 'unknown' ? 'Video Preview' : 'Video will appear here'}
+                  </p>
+                  {videoType === 'youtube' && <span className="text-xs text-red-500 mt-1">YouTube</span>}
+                  {videoType === 'vimeo' && <span className="text-xs text-blue-500 mt-1">Vimeo</span>}
+                  {videoType === 'direct' && <span className="text-xs text-green-500 mt-1">Direct Video</span>}
                 </div>
               </div>
-            )} */}
+            </div>
+          )}
 
           {/* Scheduled Date */}
           <div>
@@ -412,53 +412,147 @@ function VideoPlayer({ video, isPlaying, onPlay, onEnded }) {
 }
 
 function Insights() {
-  // Revenue chart data
-  const revenueData = [
-    { time: '09:00 AM', revenue: 0 },
-    { time: '10:00 AM', revenue: 15000 },
-    { time: '11:00 AM', revenue: 25000 },
-    { time: '12:00 PM', revenue: 40000 },
-    { time: '01:00 PM', revenue: 5000 },
-    { time: '02:00 PM', revenue: 38000 },
-    { time: '03:00 PM', revenue: 27000 },
-    { time: '04:00 PM', revenue: 21000 },
-    { time: '05:00 PM', revenue: 12000 },
-    { time: '06:00 PM', revenue: 60000 }
-  ];
+  // State for API data
+  const [revenueData, setRevenueData] = useState([]);
+  const [matchesData, setMatchesData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [apiError, setApiError] = useState(null);
 
-  // Matches chart data
-  const matchesData = [
-    { time: '09:00 AM', played: 2, available: 4 },
-    { time: '10:00 AM', played: 1, available: 3 },
-    { time: '11:00 AM', played: 2, available: 5 },
-    { time: '12:00 PM', played: 1, available: 2 },
-    { time: '01:00 PM', played: 2, available: 2 },
-    { time: '02:00 PM', played: 2, available: 6 },
-    { time: '03:00 PM', played: 8, available: 3 },
-    { time: '04:00 PM', played: 3, available: 2 },
-    { time: '05:00 PM', played: 1, available: 1 },
-    { time: '06:00 PM', played: 4, available: 3 }
-  ];
-
-  // Dropdown state
-  const [revenueType, setRevenueType] = useState('Select Type');
-  const [revenueTimeframe, setRevenueTimeframe] = useState('Today');
-  const [matchesTimeframe, setMatchesTimeframe] = useState('Today');
-
-  // Goal of the Week state
+  // Existing states
+  // const [revenueType, setRevenueType] = useState('Select Type');
+  // const [revenueTimeframe, setRevenueTimeframe] = useState('Today');
+  // const [matchesTimeframe, setMatchesTimeframe] = useState('Today');
   const [playingVideo, setPlayingVideo] = useState(null);
   const [isAddGoalModalOpen, setIsAddGoalModalOpen] = useState(false);
   const [goalVideos, setGoalVideos] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [goalsLoading, setGoalsLoading] = useState(true);
+
+  // Fetch admin data (revenue and matches)
+  useEffect(() => {
+    fetchAdminData();
+  }, []);
 
   // Fetch goals on component mount
   useEffect(() => {
     fetchGoals();
   }, []);
 
-  const fetchGoals = async () => {
+  const fetchAdminData = async () => {
     try {
       setLoading(true);
+      setApiError(null);
+
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch('http://localhost:5000/api/v1/admin/admin-data', {
+        headers: {
+          'Authorization': `${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch admin data');
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Transform revenue data for the chart
+        const transformedRevenueData = transformRevenueData(result.data.revenueBarGraph);
+        setRevenueData(transformedRevenueData);
+
+        // Transform matches data for the chart
+        const transformedMatchesData = transformMatchesData(result.data.MatchesPlayedVsAvailable);
+        setMatchesData(transformedMatchesData);
+      } else {
+        throw new Error(result.message || 'Failed to fetch admin data');
+      }
+    } catch (error) {
+      console.error('Error fetching admin data:', error);
+      setApiError(error.message);
+      // Fallback to empty data
+      setRevenueData([]);
+      setMatchesData([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Transform revenue data from API to chart format
+  const transformRevenueData = (apiData) => {
+    if (!apiData || !Array.isArray(apiData)) return [];
+
+    return apiData.map(item => {
+      const hour = item._id.hour;
+      const day = item._id.day;
+      const total = item.total;
+
+      // Format time for display
+      const timeLabel = formatTimeLabel(hour, day);
+
+      return {
+        time: timeLabel,
+        revenue: total,
+        originalData: item // Keep original data for reference
+      };
+    }).sort((a, b) => {
+      // Sort by day and hour for proper chronological order
+      if (a.originalData._id.day !== b.originalData._id.day) {
+        return a.originalData._id.day - b.originalData._id.day;
+      }
+      return a.originalData._id.hour - b.originalData._id.hour;
+    });
+  };
+
+  // Transform matches data from API to chart format
+  const transformMatchesData = (apiData) => {
+    if (!apiData || !Array.isArray(apiData)) return [];
+
+    return apiData.map(item => {
+      const hour = item.hour;
+      const played = item.played || 0;
+      const available = item.available || 0;
+
+      // Format time for display
+      const timeLabel = formatHourToTime(hour);
+
+      return {
+        time: timeLabel,
+        played: played,
+        available: available,
+        originalData: item
+      };
+    }).sort((a, b) => a.originalData.hour - b.originalData.hour);
+  };
+
+  // Helper function to format time label
+  const formatTimeLabel = (hour, day) => {
+    const now = new Date();
+    const currentDay = now.getDate();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    // Create date object for this data point
+    const dataDate = new Date(currentYear, currentMonth, day, hour);
+
+    // Format based on whether it's today or another day
+    if (day === currentDay) {
+      return formatHourToTime(hour);
+    } else {
+      return `${dataDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ${formatHourToTime(hour)}`;
+    }
+  };
+
+  // Helper function to format hour to time string
+  const formatHourToTime = (hour) => {
+    if (hour === 0) return '12:00 AM';
+    if (hour === 12) return '12:00 PM';
+    if (hour < 12) return `${hour}:00 AM`;
+    return `${hour - 12}:00 PM`;
+  };
+
+  const fetchGoals = async () => {
+    try {
+      setGoalsLoading(true);
       const response = await fetch('http://localhost:5000/api/v1/goal/all-goal');
 
       if (!response.ok) {
@@ -472,7 +566,7 @@ function Insights() {
       toast.error('Failed to load goals');
       setGoalVideos([]);
     } finally {
-      setLoading(false);
+      setGoalsLoading(false);
     }
   };
 
@@ -557,6 +651,27 @@ function Insights() {
     return `$${value}`;
   };
 
+  // Calculate dynamic domain for revenue chart based on your data
+  const getRevenueDomain = () => {
+    if (revenueData.length === 0) return [0, 100000];
+
+    const maxRevenue = Math.max(...revenueData.map(item => item.revenue));
+    const upperBound = Math.ceil(maxRevenue / 10000) * 10000;
+    return [0, upperBound || 100000];
+  };
+
+  // Calculate dynamic domain for matches chart
+  const getMatchesDomain = () => {
+    if (matchesData.length === 0) return [0, 10];
+
+    const maxMatches = Math.max(
+      ...matchesData.map(item => item.played),
+      ...matchesData.map(item => item.available)
+    );
+    const upperBound = Math.ceil(maxMatches / 2) * 2;
+    return [0, upperBound || 10];
+  };
+
   // Format goal title based on status and scheduled date
   const formatGoalTitle = (goal) => {
     if (goal.status === 'active') {
@@ -605,7 +720,7 @@ function Insights() {
           </button>
         </div>
 
-        {loading ? (
+        {goalsLoading ? (
           <div className="flex justify-center items-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
           </div>
@@ -659,7 +774,7 @@ function Insights() {
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-xl font-semibold text-gray-900">Revenue Overview</h2>
           <div className="flex items-center gap-3">
-            <CustomDropdown
+            {/* <CustomDropdown
               value={revenueType}
               setValue={setRevenueType}
               options={['Select Type', 'Total Revenue', 'Average Revenue']}
@@ -668,36 +783,62 @@ function Insights() {
               value={revenueTimeframe}
               setValue={setRevenueTimeframe}
               options={['Today', 'This Week', 'This Month']}
-            />
+            /> */}
           </div>
         </div>
-        <div className="h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={revenueData} barCategoryGap="30%" margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis
-                dataKey="time"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 14, fill: "#222", fontWeight: 500 }}
-              />
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 14, fill: "#222", fontWeight: 500 }}
-                tickFormatter={formatYAxisRevenue}
-                domain={[0, 100000]}
-                ticks={[0, 25000, 50000, 75000, 100000]}
-              />
-              <Bar
-                dataKey="revenue"
-                fill="#10B981"
-                radius={[8, 8, 0, 0]}
-                maxBarSize={40}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+
+        {loading ? (
+          <div className="h-72 flex items-center justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+          </div>
+        ) : apiError ? (
+          <div className="h-72 flex items-center justify-center">
+            <div className="text-center">
+              <p className="text-red-500 mb-2">Error loading revenue data</p>
+              <button
+                onClick={fetchAdminData}
+                className="text-emerald-500 hover:text-emerald-600 font-medium"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        ) : revenueData.length === 0 ? (
+          <div className="h-72 flex items-center justify-center">
+            <p className="text-gray-500">No revenue data available</p>
+          </div>
+        ) : (
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={revenueData}
+                barCategoryGap="30%"
+                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis
+                  dataKey="time"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 14, fill: "#222", fontWeight: 500 }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 14, fill: "#222", fontWeight: 500 }}
+                  tickFormatter={formatYAxisRevenue}
+                  domain={getRevenueDomain()}
+                />
+                <Bar
+                  dataKey="revenue"
+                  fill="#10B981"
+                  radius={[8, 8, 0, 0]}
+                  maxBarSize={40}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
 
       {/* Matches Chart Section */}
@@ -707,66 +848,92 @@ function Insights() {
             <h2 className="text-xl font-semibold text-gray-900">Matches Overview</h2>
             <div className="flex items-center gap-6 mt-2">
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3" style={{ background: "#60A5FA", borderRadius: "9999px" }}></div>
-                <span className="text-sm font-medium" style={{ color: "#60A5FA" }}>Played</span>
+                <div className="w-3 h-3 bg-blue-400 rounded-full"></div>
+                <span className="text-sm font-medium text-blue-400">Played</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3" style={{ background: "#FBBF24", borderRadius: "9999px" }}></div>
-                <span className="text-sm font-medium" style={{ color: "#FBBF24" }}>Available</span>
+                <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
+                <span className="text-sm font-medium text-yellow-400">Available</span>
               </div>
             </div>
           </div>
-          <CustomDropdown
+          {/* <CustomDropdown
             value={matchesTimeframe}
             setValue={setMatchesTimeframe}
             options={['Today', 'This Week', 'This Month']}
-          />
+          /> */}
         </div>
-        <div className="h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={matchesData} barCategoryGap="30%" margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis
-                dataKey="time"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 14, fill: "#222", fontWeight: 500 }}
-              />
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 14, fill: "#222", fontWeight: 500 }}
-                domain={[0, 10]}
-                ticks={[0, 2, 4, 6, 8, 10]}
-              />
-              <Legend
-                wrapperStyle={{
-                  paddingBottom: 16,
-                  fontSize: 14,
-                  fontWeight: 500,
-                  color: "#222"
-                }}
-                iconType="circle"
-                align="left"
-                verticalAlign="top"
-              />
-              <Bar
-                dataKey="played"
-                fill="#96ECC9"
-                radius={[8, 8, 0, 0]}
-                maxBarSize={20}
-                name="Played"
-              />
-              <Bar
-                dataKey="available"
-                fill="#2EDB95"
-                radius={[8, 8, 0, 0]}
-                maxBarSize={20}
-                name="Available"
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+
+        {loading ? (
+          <div className="h-72 flex items-center justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+          </div>
+        ) : apiError ? (
+          <div className="h-72 flex items-center justify-center">
+            <div className="text-center">
+              <p className="text-red-500 mb-2">Error loading matches data</p>
+              <button
+                onClick={fetchAdminData}
+                className="text-emerald-500 hover:text-emerald-600 font-medium"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        ) : matchesData.length === 0 ? (
+          <div className="h-72 flex items-center justify-center">
+            <p className="text-gray-500">No matches data available</p>
+          </div>
+        ) : (
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={matchesData}
+                barCategoryGap="30%"
+                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis
+                  dataKey="time"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 14, fill: "#222", fontWeight: 500 }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 14, fill: "#222", fontWeight: 500 }}
+                  domain={getMatchesDomain()}
+                />
+                <Legend
+                  wrapperStyle={{
+                    paddingBottom: 16,
+                    fontSize: 14,
+                    fontWeight: 500,
+                    color: "#222"
+                  }}
+                  iconType="circle"
+                  align="left"
+                  verticalAlign="top"
+                />
+                <Bar
+                  dataKey="played"
+                  fill="#60A5FA"
+                  radius={[8, 8, 0, 0]}
+                  maxBarSize={20}
+                  name="Played"
+                />
+                <Bar
+                  dataKey="available"
+                  fill="#FBBF24"
+                  radius={[8, 8, 0, 0]}
+                  maxBarSize={20}
+                  name="Available"
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
 
       {/* Add Goal Modal */}
