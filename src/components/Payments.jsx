@@ -301,50 +301,6 @@ const Payments = () => {
       const player = payment.playerId;
       const team = payment.teamId;
 
-      // Handle different lobby structures (team1/team2 vs defaultTeam1/defaultTeam2)
-      let team1, team2;
-
-      if (lobby) {
-        if (lobby.team1 && lobby.team2) {
-          // Team match structure
-          team1 = {
-            teamId: lobby.team1.teamId,
-            name: getTeamName(lobby.team1.teamId),
-            logo: lobby.team1.teamId?.image,
-            goals: lobby.goalTeam1 || 0,
-            players: lobby.team1.players?.length || 0
-          };
-          team2 = {
-            teamId: lobby.team2.teamId,
-            name: getTeamName(lobby.team2.teamId),
-            logo: lobby.team2.teamId?.image,
-            goals: lobby.goalTeam2 || 0,
-            players: lobby.team2.players?.length || 0
-          };
-        } else if (lobby.defaultTeam1 && lobby.defaultTeam2) {
-          // Solo match structure
-          team1 = {
-            teamId: null,
-            name: lobby.defaultTeam1.teamName || 'Team X',
-            logo: null,
-            goals: lobby.goalTeam1 || 0,
-            players: lobby.defaultTeam1.players?.length || 0
-          };
-          team2 = {
-            teamId: null,
-            name: lobby.defaultTeam2.teamName || 'Team Y',
-            logo: null,
-            goals: lobby.goalTeam2 || 0,
-            players: lobby.defaultTeam2.players?.length || 0
-          };
-        }
-      }
-
-      // Determine if player's team is team1 or team2
-      const playerTeamId = team?._id;
-      const isTeam1 = team1?.teamId?._id === playerTeamId;
-      const isTeam2 = team2?.teamId?._id === playerTeamId;
-
       return {
         id: payment._id,
         type: lobby?.title || 'Match Payment',
@@ -365,25 +321,6 @@ const Payments = () => {
         pending: payment.status === 'pending',
         rawData: payment,
 
-        team1: team1 || {
-          name: 'Team X',
-          logo: null,
-          goals: 0,
-          players: 0
-        },
-        team2: team2 || {
-          name: 'Team Y',
-          logo: null,
-          goals: 0,
-          players: 0
-        },
-        playerTeam: {
-          name: getTeamName(team),
-          logo: team?.image,
-          isTeam1,
-          isTeam2
-        },
-
         matchType: lobby?.matchType || 'teams',
         teamSize: lobby?.teamSize || 7,
         position: payment.matchPosition || 'Player',
@@ -392,7 +329,12 @@ const Payments = () => {
         hasCamera: lobby?.camera || false,
         matchPrivacy: lobby?.matchPrivacy || 'public',
         privateKey: lobby?.privateKey || null,
-        price: payment.price || 0
+        price: payment.price || 0,
+
+        // Lobby details
+        lobbyTitle: lobby?.title || 'Unknown Lobby',
+        lobbyDescription: lobby?.description || 'No description available',
+        lobbyId: lobby?._id || 'N/A'
       };
     });
   }, [payments]);
@@ -452,9 +394,6 @@ const Payments = () => {
         item.playerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.team1?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.team2?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.position?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.lobbyTitle?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.teamName?.toLowerCase().includes(searchTerm.toLowerCase())
       );
@@ -667,11 +606,12 @@ const Payments = () => {
             <div key={item.id} className="bg-white rounded-lg mb-3 p-4 shadow-sm border border-gray-200">
 
               {activeTab === 'History' ? (
-                // Payment History View
+                // Payment History View - SHOW ONLY LOBBY AND PLAYER INFO
                 <>
+                  {/* Header with Lobby Title and Status */}
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex items-center space-x-2">
-                      <h3 className="font-medium text-gray-900">{item.type}</h3>
+                      <h3 className="font-medium text-gray-900">{item.lobbyTitle}</h3>
                       {getStatusBadge(item.status)}
                       {item.matchPrivacy === 'private' && (
                         <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
@@ -680,8 +620,8 @@ const Payments = () => {
                       )}
                     </div>
                     <div className="text-right">
-                      <span className={`text-lg font-bold ${item.color}`}>
-                        ${item.price}
+                      <span className={`text-sm font-medium ${item.color}`}>
+                        {item.amount}
                       </span>
                       <div className="text-xs text-gray-500 mt-1">
                         Paid on: {item.paymentDate}
@@ -690,87 +630,97 @@ const Payments = () => {
                   </div>
 
                   {/* Player Information */}
-                  <div className="mb-3 p-2 bg-blue-50 rounded-lg">
-                    <div className="flex items-center space-x-2 text-sm">
-                      <User className="w-4 h-4 text-blue-500" />
-                      <span className="font-medium">Player:</span>
-                      <span>{item.player}</span>
-                      {item.userName && (
-                        <span className="text-gray-500">(@{item.userName})</span>
-                      )}
+                  <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <h4 className="font-medium text-gray-900 mb-2 flex items-center">
+                      <User className="w-4 h-4 mr-2 text-blue-500" />
+                      Player Information
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <div className="flex items-center space-x-2 mb-1">
+                          <span className="font-medium text-gray-700">Name:</span>
+                          <span className="text-gray-900">{item.player}</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="font-medium text-gray-700">Username:</span>
+                          <span className="text-gray-900">@{item.userName}</span>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex items-center space-x-2 mb-1">
+                          <span className="font-medium text-gray-700">Position:</span>
+                          <span className="text-gray-900 capitalize">{item.position}</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="font-medium text-gray-700">Payment Method:</span>
+                          <span className="text-gray-900 capitalize">{item.method}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Team vs Team Section */}
-                  {item.team1 && item.team2 && (
-                    <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
+                  {/* Lobby Information */}
+                  <div className="mb-4 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <h4 className="font-medium text-gray-900 mb-2 flex items-center">
+                      <Trophy className="w-4 h-4 mr-2 text-green-500" />
+                      Lobby Information
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div className="space-y-2">
                         <div className="flex items-center space-x-2">
-                          {getTeamLogo(item.team1)}
-                          <span className="text-sm font-medium text-gray-900">
-                            {item.team1.name}
-                           
-                          </span>
-                        </div>
-
-                        <div className="flex items-center space-x-3">
-                          <div className="text-center">
-                            <div className="text-lg font-bold text-gray-900">{item.team1.goals}</div>
-                          </div>
-                          <div className="text-sm text-gray-500">VS</div>
-                          <div className="text-center">
-                            <div className="text-lg font-bold text-gray-900">{item.team2.goals}</div>
+                          <MapPin className="w-4 h-4 text-gray-400" />
+                          <div>
+                            <span className="font-medium text-gray-700">Location:</span>
+                            <div className="text-gray-900">{item.location}</div>
                           </div>
                         </div>
-
                         <div className="flex items-center space-x-2">
-                          <span className="text-sm font-medium text-gray-900">
-                            {item.team2.name}
-                           
-                          </span>
-                          {getTeamLogo(item.team2)}
+                          <Calendar className="w-4 h-4 text-gray-400" />
+                          <div>
+                            <span className="font-medium text-gray-700">Date:</span>
+                            <div className="text-gray-900">{item.matchDate}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Clock className="w-4 h-4 text-gray-400" />
+                          <div>
+                            <span className="font-medium text-gray-700">Time:</span>
+                            <div className="text-gray-900">{item.matchTime}</div>
+                          </div>
                         </div>
                       </div>
-
-                      {/* Match Details */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-gray-600">
-                        <div className="flex items-center space-x-1">
-                          <Users className="w-3 h-3" />
-                          <span>{item.teamSize}v{item.teamSize}</span>
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <Users className="w-4 h-4 text-gray-400" />
+                          <div>
+                            <span className="font-medium text-gray-700">Match Type:</span>
+                            <div className="text-gray-900 capitalize">{item.matchType}</div>
+                          </div>
                         </div>
-                        <div className="flex items-center space-x-1">
-                          {getMatchTypeIcon(item.matchType)}
-                          <span className="capitalize">{item.matchType}</span>
+                        <div className="flex items-center space-x-2">
+                          <Shield className="w-4 h-4 text-gray-400" />
+                          <div>
+                            <span className="font-medium text-gray-700">Team Size:</span>
+                            <div className="text-gray-900">{item.teamSize}v{item.teamSize}</div>
+                          </div>
                         </div>
-                        <div className="flex items-center space-x-1">
-                          <Footprints className="w-3 h-3" />
-                          <span className="capitalize">{item.position}</span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          <Shield className="w-3 h-3" />
-                          <span>{item.playerTeam.name}</span>
+                        <div className="flex items-center space-x-2">
+                          <Clock className="w-4 h-4 text-green-500" />
+                          <div>
+                            <span className="font-medium text-gray-700">Duration:</span>
+                            <div className="text-gray-900">{item.duration}</div>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  )}
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-3">
-                    <div className="flex items-center space-x-2">
-                      <MapPin className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-600 truncate">{item.location}</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Calendar className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-600">{item.matchDate}</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Clock className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-600">{item.matchTime}</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Clock className="w-4 h-4 text-green-500" />
-                      <span className="text-gray-600">{item.duration}</span>
-                    </div>
+                    {/* Lobby Description */}
+                    {item.lobbyDescription && item.lobbyDescription !== 'No description available' && (
+                      <div className="mt-3 pt-3 border-t border-green-200">
+                        <span className="font-medium text-gray-700 text-sm">Description:</span>
+                        <div className="text-gray-900 text-sm mt-1">{item.lobbyDescription}</div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Match Features */}
@@ -831,7 +781,7 @@ const Payments = () => {
                   )}
                 </>
               ) : (
-                // Refund Requests View
+                // Refund Requests View (Unchanged)
                 <>
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex items-center space-x-2">
@@ -869,19 +819,6 @@ const Payments = () => {
                           <div><span className="font-medium">Email:</span> {item.playerEmail}</div>
                           <div><span className="font-medium">Player ID:</span> {item.playerId}</div>
                         </div>
-                      </div>
-
-                      <div>
-                        {/* <h4 className="font-medium text-gray-900 mb-2 flex items-center">
-                          <Shield className="w-4 h-4 mr-2 text-green-500" />
-                          Team Information
-                        </h4>
-                        <div className="space-y-1 text-xs">
-                          <div><span className="font-medium">Team:</span> {item.teamName}</div>
-                          <div><span className="font-medium">Username:</span> {item.teamUserName}</div>
-                          <div><span className="font-medium">Team ID:</span> {item.teamId}</div>
-                          <div><span className="font-medium">Leaving Team:</span> Yes</div>
-                        </div> */}
                       </div>
                     </div>
                   </div>
