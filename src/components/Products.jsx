@@ -44,7 +44,7 @@ function Products() {
         headers['Authorization'] = `${token}`;
       }
 
-      const response = await fetch('http://localhost:5000/api/v1/lobby/all-match', {
+      const response = await fetch('https://api.toptopfootball.com/api/v1/lobby/all-match', {
         headers: headers
       });
 
@@ -94,7 +94,7 @@ function Products() {
       const formData = new FormData();
       formData.append('lobbyStatus', newStatus);
 
-      const response = await fetch(`http://localhost:5000/api/v1/lobby/${lobbyId}/lobby-info`, {
+      const response = await fetch(`https://api.toptopfootball.com/api/v1/lobby/${lobbyId}/lobby-info`, {
         method: 'PUT',
         headers: {
           'Authorization': `${token}`,
@@ -142,7 +142,7 @@ function Products() {
         return;
       }
 
-      const response = await fetch(`http://localhost:5000/api/v1/lobby/delete/${lobbyId}`, {
+      const response = await fetch(`https://api.toptopfootball.com/api/v1/lobby/delete/${lobbyId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `${token}`,

@@ -72,7 +72,7 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
     const fetchTeams = async () => {
       try {
         setLoading(true);
-        const response = await fetch('http://localhost:5000/api/v1/team/all-teams');
+        const response = await fetch('https://api.toptopfootball.com/api/v1/team/all-teams');
         const data = await response.json();
 
         if (Array.isArray(data)) {
@@ -107,7 +107,7 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
 
     try {
       const response = await fetch(
-        `http://localhost:5000/api/autocomplete?input=${encodeURIComponent(query)}`
+        `https://api.toptopfootball.com/api/autocomplete?input=${encodeURIComponent(query)}`
       );
 
       if (!response.ok) {
@@ -141,7 +141,7 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
     try {
       // Apnar backend place details API use korchi
       const response = await fetch(
-        `http://localhost:5000/api/place-details?place_id=${placeId}`
+        `https://api.toptopfootball.com/api/place-details?place_id=${placeId}`
       );
 
       if (!response.ok) {
@@ -154,8 +154,8 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
       // Different possible response structures handle korchi
       if (data) {
         // Google API structure
-        const { lat, lng,address } = data;
- 
+        const { lat, lng, address } = data;
+
         setFormData(prev => ({
           ...prev,
           location: { lat, lng, address }
@@ -286,7 +286,7 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
 
       console.log('Submitting data to backend:', submitData);
 
-      const response = await fetch('http://localhost:5000/api/v1/lobby/create-match', {
+      const response = await fetch('https://api.toptopfootball.com/api/v1/lobby/create-match', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

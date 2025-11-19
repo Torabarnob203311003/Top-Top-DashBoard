@@ -47,7 +47,7 @@ const Payments = () => {
 
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:5000/api/v1/payment/all-payment', {
+      const response = await fetch('https://api.toptopfootball.com/api/v1/payment/all-payment', {
         method: 'GET',
         headers: {
           'Authorization': `${token}`,
@@ -81,7 +81,7 @@ const Payments = () => {
 
     try {
       setRefundLoading(true);
-      const response = await fetch('http://localhost:5000/api/v1/refund/all-refund-request', {
+      const response = await fetch('https://api.toptopfootball.com/api/v1/refund/all-refund-request', {
         method: 'GET',
         headers: {
           'Authorization': `${token}`,
@@ -115,7 +115,7 @@ const Payments = () => {
 
     try {
       if (newStatus === 'success') {
-        const response = await fetch(`http://localhost:5000/api/v1/payment/payment-success?paymentId=${paymentId}`, {
+        const response = await fetch(`https://api.toptopfootball.com/api/v1/payment/payment-success?paymentId=${paymentId}`, {
           method: 'GET',
           headers: {
             'Authorization': `${token}`,
@@ -132,7 +132,7 @@ const Payments = () => {
           toast.error(result.message || 'Failed to update payment status');
         }
       } else {
-        const response = await fetch(`http://localhost:5000/api/v1/payment/payment-cancel?paymentId=${paymentId}`, {
+        const response = await fetch(`https://api.toptopfootball.com/api/v1/payment/payment-cancel?paymentId=${paymentId}`, {
           method: 'GET',
           headers: {
             'Authorization': `${token}`,
@@ -176,7 +176,7 @@ const Payments = () => {
         return;
       }
 
-      const response = await fetch('http://localhost:5000/api/v1/refund/accept-refund-request', {
+      const response = await fetch('https://api.toptopfootball.com/api/v1/refund/accept-refund-request', {
         method: 'POST',
         headers: {
           'Authorization': `${token}`,
@@ -221,7 +221,7 @@ const Payments = () => {
         return;
       }
 
-      const response = await fetch('http://localhost:5000/api/v1/refund/reject-refund-request', {
+      const response = await fetch('https://api.toptopfootball.com/api/v1/refund/reject-refund-request', {
         method: 'POST',
         headers: {
           'Authorization': `${token}`,
@@ -773,8 +773,8 @@ const Payments = () => {
         <button
           onClick={() => setActiveTab('All Payments')}
           className={`flex-1 py-3 px-4 text-sm font-medium whitespace-nowrap ${activeTab === 'All Payments'
-              ? 'bg-green-500 text-white'
-              : 'text-gray-600 hover:text-gray-900'
+            ? 'bg-green-500 text-white'
+            : 'text-gray-600 hover:text-gray-900'
             }`}
         >
           All Payments
@@ -782,8 +782,8 @@ const Payments = () => {
         <button
           onClick={() => setActiveTab('Team Fees')}
           className={`flex-1 py-3 px-4 text-sm font-medium whitespace-nowrap ${activeTab === 'Team Fees'
-              ? 'bg-green-500 text-white'
-              : 'text-gray-600 hover:text-gray-900'
+            ? 'bg-green-500 text-white'
+            : 'text-gray-600 hover:text-gray-900'
             }`}
         >
           Team Fees
@@ -791,8 +791,8 @@ const Payments = () => {
         <button
           onClick={() => setActiveTab('Tournament Fees')}
           className={`flex-1 py-3 px-4 text-sm font-medium whitespace-nowrap ${activeTab === 'Tournament Fees'
-              ? 'bg-green-500 text-white'
-              : 'text-gray-600 hover:text-gray-900'
+            ? 'bg-green-500 text-white'
+            : 'text-gray-600 hover:text-gray-900'
             }`}
         >
           Tournament Fees
@@ -800,8 +800,8 @@ const Payments = () => {
         <button
           onClick={() => setActiveTab('Refund Requests')}
           className={`flex-1 py-3 px-4 text-sm font-medium whitespace-nowrap ${activeTab === 'Refund Requests'
-              ? 'bg-green-500 text-white'
-              : 'text-gray-600 hover:text-gray-900'
+            ? 'bg-green-500 text-white'
+            : 'text-gray-600 hover:text-gray-900'
             }`}
         >
           Refund Requests
@@ -1214,7 +1214,7 @@ const Payments = () => {
                   {item.status !== 'pending' && (
                     <div className="pt-3 border-t">
                       <div className={`text-sm font-medium ${item.status === 'accept' ? 'text-green-600' :
-                          item.status === 'rejected' ? 'text-red-600' : 'text-gray-600'
+                        item.status === 'rejected' ? 'text-red-600' : 'text-gray-600'
                         }`}>
                         This refund request has been {item.status === 'accept' ? 'approved' : 'rejected'}.
                       </div>

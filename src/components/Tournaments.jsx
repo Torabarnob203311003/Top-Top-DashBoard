@@ -13,7 +13,7 @@ function Tournaments() {
   const fetchTournaments = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:5000/api/v1/tournament/all-tournament');
+      const response = await fetch('https://api.toptopfootball.com/api/v1/tournament/all-tournament');
       const result = await response.json();
 
       if (result.success) {
@@ -36,7 +36,7 @@ function Tournaments() {
       const formData = new FormData();
       formData.append('status', newStatus);
 
-      const response = await fetch(`http://localhost:5000/api/v1/tournament/update-tournament/${tournamentId}`, {
+      const response = await fetch(`https://api.toptopfootball.com/api/v1/tournament/update-tournament/${tournamentId}`, {
         method: 'PATCH',
         body: formData,
       });
@@ -170,8 +170,8 @@ function Tournaments() {
                       tournament.status === 'active' ? 'block' : 'active'
                     )}
                     className={`flex items-center gap-2 px-3 py-1 rounded-lg text-sm font-medium ${tournament.status === 'active'
-                        ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                        : 'bg-green-100 text-green-700 hover:bg-green-200'
+                      ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                      : 'bg-green-100 text-green-700 hover:bg-green-200'
                       }`}
                   >
                     {tournament.status === 'active' ? (
@@ -194,8 +194,8 @@ function Tournaments() {
                     {formatDuration(tournament.duration)}
                   </span>
                   <span className={`text-xs px-2 py-1 rounded-full ${tournament.status === 'active'
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-red-100 text-red-800'
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-red-100 text-red-800'
                     }`}>
                     {tournament.status}
                   </span>
@@ -215,7 +215,7 @@ function Tournaments() {
                     <span className="text-gray-600 text-sm">{formatFieldSize(tournament.fieldSize)}</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    
+
                     <span className="text-gray-600 text-sm">{formatPrice(tournament.price)}</span>
                   </div>
                 </div>

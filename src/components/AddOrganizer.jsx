@@ -72,7 +72,7 @@ function AddOrganizer({ onClose, onOrganizerAdded }) {
         }
       }
 
-      const response = await fetch('http://localhost:5000/api/v1/auth/create-player', {
+      const response = await fetch('https://api.toptopfootball.com/api/v1/auth/create-player', {
         method: 'POST',
         body: formData
       });

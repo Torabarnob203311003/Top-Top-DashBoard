@@ -20,7 +20,7 @@ const Organizers = () => {
   const fetchOrganizers = async () => {
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch('http://localhost:5000/api/v1/auth/all-player', {
+      const response = await fetch('https://api.toptopfootball.com/api/v1/auth/all-player', {
         headers: {
           'Authorization': `${token}`,
           'Content-Type': 'application/json'
@@ -57,7 +57,7 @@ const Organizers = () => {
 
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`http://localhost:5000/api/v1/auth/delete-player/${organizerId}`, {
+      const response = await fetch(`https://api.toptopfootball.com/api/v1/auth/delete-player/${organizerId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `${token}`,
@@ -92,7 +92,7 @@ const Organizers = () => {
       const token = localStorage.getItem('accessToken');
       const newStatus = currentStatus === 'active' ? 'blocked' : 'active';
 
-      const response = await fetch(`http://localhost:5000/api/v1/auth/update-status/${organizerId}`, {
+      const response = await fetch(`https://api.toptopfootball.com/api/v1/auth/update-status/${organizerId}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `${token}`,
@@ -312,8 +312,8 @@ const Organizers = () => {
                       onClick={() => handleBlockToggle(organizer._id, organizer.isBlocked)}
                       disabled={actionLoading === `block-${organizer._id}`}
                       className={`p-2 rounded-md transition-colors ${organizer.isBlocked === 'active'
-                          ? 'text-orange-600 hover:bg-orange-50'
-                          : 'text-green-600 hover:bg-green-50'
+                        ? 'text-orange-600 hover:bg-orange-50'
+                        : 'text-green-600 hover:bg-green-50'
                         } ${actionLoading === `block-${organizer._id}` ? 'opacity-50 cursor-not-allowed' : ''}`}
                       title={organizer.isBlocked === 'active' ? 'Block organizer' : 'Unblock organizer'}
                     >
@@ -435,7 +435,7 @@ const Organizers = () => {
               </div>
 
 
-          
+
             </div>
 
             {/* Modal Footer */}
@@ -446,7 +446,7 @@ const Organizers = () => {
               >
                 Close
               </button>
-           
+
             </div>
           </div>
         </div>

@@ -12,7 +12,7 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/v1/admin/admin-data');
+        const response = await fetch('https://api.toptopfootball.com/api/v1/admin/admin-data');
         const result = await response.json();
 
         if (result.success) {
@@ -204,7 +204,7 @@ const Dashboard = () => {
                     </p>
                   </div>
                   <span className={`font-semibold ${transaction.status === 'success' ? 'text-green-600' :
-                      transaction.status === 'refund' ? 'text-red-500' : 'text-yellow-600'
+                    transaction.status === 'refund' ? 'text-red-500' : 'text-yellow-600'
                     }`}>
                     ${transaction.price}
                   </span>

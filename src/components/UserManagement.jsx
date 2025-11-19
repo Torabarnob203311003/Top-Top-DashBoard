@@ -18,7 +18,7 @@ function UserManagement() {
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch('http://localhost:5000/api/v1/auth/all-player', {
+      const response = await fetch('https://api.toptopfootball.com/api/v1/auth/all-player', {
         headers: {
           'Authorization': `${token}`,
           'Content-Type': 'application/json'
@@ -51,7 +51,7 @@ function UserManagement() {
       const token = localStorage.getItem('accessToken');
       const newStatus = currentStatus === 'active' ? 'block' : 'active';
 
-      const response = await fetch(`http://localhost:5000/api/v1/auth/update-status/${userId}`, {
+      const response = await fetch(`https://api.toptopfootball.com/api/v1/auth/update-status/${userId}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `${token}`,
@@ -95,7 +95,7 @@ function UserManagement() {
 
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`http://localhost:5000/api/v1/auth/delete-player/${userId}`, {
+      const response = await fetch(`https://api.toptopfootball.com/api/v1/auth/delete-player/${userId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `${token}`,
@@ -241,6 +241,7 @@ function UserManagement() {
       </div>
     );
   }
+  console.log(users, "users")
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
@@ -258,8 +259,8 @@ function UserManagement() {
             <button
               onClick={() => setShowFilters(!showFilters)}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${showFilters || positionFilter !== "all"
-                  ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
             >
               <Filter className="w-4 h-4" />
@@ -306,8 +307,8 @@ function UserManagement() {
                 <button
                   onClick={() => setPositionFilter("all")}
                   className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${positionFilter === "all"
-                      ? 'bg-emerald-500 text-white'
-                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                     }`}
                 >
                   All Positions ({users.length})
@@ -318,14 +319,14 @@ function UserManagement() {
                     key={position}
                     onClick={() => setPositionFilter(position)}
                     className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${positionFilter === position
-                        ? 'bg-emerald-500 text-white'
-                        : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                      ? 'bg-emerald-500 text-white'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                       }`}
                   >
                     {position}
                     <span className={`text-xs px-1.5 py-0.5 rounded-full ${positionFilter === position
-                        ? 'bg-emerald-400 text-white'
-                        : 'bg-gray-200 text-gray-700'
+                      ? 'bg-emerald-400 text-white'
+                      : 'bg-gray-200 text-gray-700'
                       }`}>
                       {positionCounts[position] || 0}
                     </span>
@@ -380,6 +381,7 @@ function UserManagement() {
                 <th className="text-left py-3 px-6 font-medium text-gray-700">Email</th>
                 <th className="text-left py-3 px-6 font-medium text-gray-700">Phone</th>
                 <th className="text-left py-3 px-6 font-medium text-gray-700">Position</th>
+                <th className="text-left py-3 px-6 font-medium text-gray-700">nationality</th>
                 <th className="text-left py-3 px-6 font-medium text-gray-700">Role</th>
                 <th className="text-left py-3 px-6 font-medium text-gray-700">Status</th>
                 <th className="text-left py-3 px-6 font-medium text-gray-700">Actions</th>
@@ -415,11 +417,13 @@ function UserManagement() {
                       {formatPosition(user)}
                     </span>
                   </td>
+                  <td className="py-4 px-6 text-gray-600">{user.nationality}</td>
                   <td className="py-4 px-6">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getRoleColor(user.role)}`}>
                       {user.role}
                     </span>
                   </td>
+
                   <td className="py-4 px-6">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(user.isBlocked)}`}>
                       {user.isBlocked === 'active' ? 'active' : 'block'}

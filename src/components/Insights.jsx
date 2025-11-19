@@ -98,7 +98,7 @@ function AddGoalModal({ isOpen, onClose, onGoalAdded }) {
       };
 
       const token = localStorage.getItem('accessToken');
-      const response = await fetch('http://localhost:5000/api/v1/goal/create-goal', {
+      const response = await fetch('https://api.toptopfootball.com/api/v1/goal/create-goal', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -443,7 +443,7 @@ function Insights() {
       setApiError(null);
 
       const token = localStorage.getItem('accessToken');
-      const response = await fetch('http://localhost:5000/api/v1/admin/admin-data', {
+      const response = await fetch('https://api.toptopfootball.com/api/v1/admin/admin-data', {
         headers: {
           'Authorization': `${token}`
         }
@@ -553,7 +553,7 @@ function Insights() {
   const fetchGoals = async () => {
     try {
       setGoalsLoading(true);
-      const response = await fetch('http://localhost:5000/api/v1/goal/all-goal');
+      const response = await fetch('https://api.toptopfootball.com/api/v1/goal/all-goal');
 
       if (!response.ok) {
         throw new Error('Failed to fetch goals');
@@ -593,7 +593,7 @@ function Insights() {
 
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`http://localhost:5000/api/v1/goal/delete-goal/${goalId}`, {
+      const response = await fetch(`https://api.toptopfootball.com/api/v1/goal/delete-goal/${goalId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `${token}`
