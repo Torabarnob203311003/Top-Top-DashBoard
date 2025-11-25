@@ -675,7 +675,7 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
 
         {/* Price */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Price (USD)</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Price (AED)</label>
           <input
             type="number"
             placeholder="Enter match price"

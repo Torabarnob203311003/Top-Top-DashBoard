@@ -114,7 +114,7 @@ const Dashboard = () => {
           <StatCard
             icon={TrendingUp}
             title="Total Revenue"
-            value={`$${dashboardData.totalRevenue?.toLocaleString() || '0'}`}
+            value={`${dashboardData.totalRevenue?.toLocaleString() || '0'} AED`}
             change={`${dashboardData.revenueGrowth || 0}%`}
             changeType={dashboardData.revenueGrowth > 0 ? 'positive' : dashboardData.revenueGrowth < 0 ? 'negative' : 'neutral'}
             bgColor="bg-green-100"
@@ -206,7 +206,7 @@ const Dashboard = () => {
                   <span className={`font-semibold ${transaction.status === 'success' ? 'text-green-600' :
                     transaction.status === 'refund' ? 'text-red-500' : 'text-yellow-600'
                     }`}>
-                    ${transaction.price}
+                    {transaction.price} AED
                   </span>
                 </div>
               ))}

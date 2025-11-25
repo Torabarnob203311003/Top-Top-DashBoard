@@ -83,7 +83,7 @@ function Tournaments() {
 
   // Format price
   const formatPrice = (price) => {
-    return `$${price}`;
+    return `${price} AED`;
   };
 
   // Format duration

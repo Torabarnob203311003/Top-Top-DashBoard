@@ -364,7 +364,7 @@ const Payments = () => {
         player: player?.FullName || 'Unknown Player',
         userName: player?.userName || 'N/A',
         paymentDate: formatPaymentDate(payment.createdAt),
-        amount: `${payment.price} USD`,
+        amount: `${payment.price} AED`,
         color: payment.status === 'success' ? 'text-green-500' :
           payment.status === 'pending' ? 'text-yellow-500' : 'text-red-500',
         status: payment.status,
@@ -465,7 +465,7 @@ const Payments = () => {
         playerEmail: player?.email || 'N/A',
         playerId: player?._id,
         requestDate: formatPaymentDate(refund.createdAt),
-        refundAmount: `${refund.price} USD`,
+        refundAmount: `${refund.price} AED`,
         originalPrice: refund.price,
         status: refund.status,
         rawData: refund,
