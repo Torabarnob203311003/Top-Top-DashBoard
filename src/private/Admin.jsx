@@ -29,11 +29,12 @@ const AdMinPrivate = ({ children }) => {
           return <Navigate state={location.pathname} to="/login" replace />;
      }
 
-
-     const isPosition = "admin";
-     if (decoded?.email && isPosition === "admin") {
+console.log(decoded,"decode user")
+    
+     if (decoded?.email && decoded.role === "admin") {
           return children;
      } else {
+          toast.error("Only Admin login required")
           return <Navigate state={location.pathname} to="/login" replace />;
      }
 };
