@@ -1003,13 +1003,13 @@ const Payments = () => {
                         onClick={() => updatePaymentStatus(item.rawData._id, 'success')}
                         className="px-4 py-2 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition-colors"
                       >
-                        Mark Complete
+                        Approve Cash Payment
                       </button>
                       <button
                         onClick={() => updatePaymentStatus(item.rawData._id, 'failed')}
                         className="px-4 py-2 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition-colors"
                       >
-                        Mark Failed
+                       Reject Cash Payment
                       </button>
                     </div>
                   )}
