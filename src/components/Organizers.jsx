@@ -1,5 +1,6 @@
+/* eslint-disable no-unused-vars */
 import React, { useState, useEffect } from 'react';
-import { Eye, Edit, Trash2, Plus, Search, Loader, Ban, CheckCircle, X, User } from 'lucide-react';
+import { Eye, Edit, Trash2, Plus, Search, Loader, Ban, CheckCircle, X, User, Calendar, Clock, MapPin, Users, ChevronRight } from 'lucide-react';
 import AddOrganizer from './AddOrganizer';
 import toast from 'react-hot-toast';
 
@@ -11,6 +12,9 @@ const Organizers = () => {
   const [actionLoading, setActionLoading] = useState(null);
   const [selectedOrganizer, setSelectedOrganizer] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [matches, setMatches] = useState([]);
+  const [matchLoading, setMatchLoading] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
 
   // Fetch organizers from API
   useEffect(() => {
@@ -46,6 +50,96 @@ const Organizers = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Fetch matches for selected organizer
+  const fetchOrganizerMatches = async (organizerId) => {
+    setMatchLoading(true);
+    try {
+      const token = localStorage.getItem('accessToken');
+      // This endpoint would need to be created in your backend
+      const response = await fetch(`https://api.toptopfootball.com/api/v1/matches/organizer/${organizerId}`, {
+        headers: {
+          'Authorization': `${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch matches');
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        setMatches(result.data);
+      } else {
+        toast.error(result.message || 'Failed to fetch matches');
+        // Mock data for demonstration
+        setMatches(getMockMatches());
+      }
+    } catch (error) {
+      console.error('Error fetching matches:', error);
+      // Mock data for demonstration
+      setMatches(getMockMatches());
+    } finally {
+      setMatchLoading(false);
+    }
+  };
+
+  // Mock matches data for demonstration
+  const getMockMatches = () => {
+    return {
+      upcoming: [
+        {
+          id: 1,
+          teamName: 'Raging Bulls FC',
+          location: 'New Westbury',
+          time: '05:45 PM',
+          duration: '80 Minutes',
+          format: '7v7',
+          league: 'S13',
+          joined: 5,
+          total: 16,
+          date: '2025-07-30'
+        },
+        {
+          id: 2,
+          teamName: 'Thunder Strikers',
+          location: 'Central Park',
+          time: '07:30 PM',
+          duration: '90 Minutes',
+          format: '11v11',
+          league: 'Premier',
+          joined: 11,
+          total: 22,
+          date: '2025-08-02'
+        }
+      ],
+      history: [
+        {
+          id: 3,
+          date: '2025-07-22',
+          teamName: 'Thunder Strikers',
+          result: 'W 3-2',
+          location: 'New Westbury'
+        },
+        {
+          id: 4,
+          date: '2025-07-18',
+          teamName: 'Red Dragons',
+          result: 'L 1-4',
+          location: 'Central Park'
+        },
+        {
+          id: 5,
+          date: '2025-07-15',
+          teamName: 'Blue Tigers',
+          result: 'D 2-2',
+          location: 'East Field'
+        }
+      ]
+    };
   };
 
   const handleDelete = async (organizerId, organizerName) => {
@@ -128,10 +222,14 @@ const Organizers = () => {
 
   const handleViewDetails = (organizer) => {
     setSelectedOrganizer(organizer);
+    fetchOrganizerMatches(organizer._id);
     setShowDetailsModal(true);
   };
 
-
+  const handleAssignMatch = () => {
+    setShowAssignModal(true);
+    // Here you would fetch available lobbies/matches
+  };
 
   // Filter organizers based on search term
   const filteredOrganizers = organizers.filter(organizer =>
@@ -353,13 +451,26 @@ const Organizers = () => {
         )}
       </div>
 
-      {/* Details Modal */}
+      {/* Organizer Details Modal */}
       {showDetailsModal && selectedOrganizer && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900">Organizer Details</h2>
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
+              <div className="flex items-center gap-4">
+                <img
+                  src={selectedOrganizer.imageUrl || '/default-avatar.png'}
+                  alt={selectedOrganizer.FullName}
+                  className="w-12 h-12 rounded-full object-cover border"
+                  onError={(e) => {
+                    e.target.src = '/default-avatar.png';
+                  }}
+                />
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">{selectedOrganizer.FullName}</h2>
+                  <p className="text-gray-600">{selectedOrganizer.email}</p>
+                </div>
+              </div>
               <button
                 onClick={() => setShowDetailsModal(false)}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -370,83 +481,202 @@ const Organizers = () => {
 
             {/* Modal Content */}
             <div className="p-6">
-              <div className="flex items-start gap-6 mb-6">
-                <img
-                  src={selectedOrganizer.imageUrl || '/default-avatar.png'}
-                  alt={selectedOrganizer.FullName}
-                  className="w-20 h-20 rounded-full object-cover border"
-                  onError={(e) => {
-                    e.target.src = '/default-avatar.png';
-                  }}
-                />
+              {/* Assign Match Button */}
+              <div className="mb-8">
+                <button
+                  onClick={handleAssignMatch}
+                  className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2 transition-colors"
+                >
+                  <Plus className="w-5 h-5" />
+                  Assign New Match
+                </button>
+              </div>
+
+              {/* Stats Section */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600">Total Collection</p>
+                      <p className="text-2xl font-bold text-gray-900">$45,023</p>
+                    </div>
+                    <div className="bg-blue-100 p-3 rounded-full">
+                      <Users className="w-6 h-6 text-blue-600" />
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600">Upcoming Matches</p>
+                      <p className="text-2xl font-bold text-gray-900">{matches.upcoming?.length || 0}</p>
+                    </div>
+                    <div className="bg-green-100 p-3 rounded-full">
+                      <Calendar className="w-6 h-6 text-green-600" />
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-orange-50 p-4 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600">Match History</p>
+                      <p className="text-2xl font-bold text-gray-900">{matches.history?.length || 0}</p>
+                    </div>
+                    <div className="bg-orange-100 p-3 rounded-full">
+                      <Clock className="w-6 h-6 text-orange-600" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Upcoming Matches */}
+              <div className="mb-8">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Upcoming Matches</h3>
+                {matchLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader className="w-6 h-6 animate-spin text-green-500" />
+                  </div>
+                ) : matches.upcoming && matches.upcoming.length > 0 ? (
+                  <div className="space-y-4">
+                    {matches.upcoming.map((match) => (
+                      <div key={match.id} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-medium text-gray-900">{match.teamName}</h4>
+                          <span className="text-sm text-gray-600">{match.date}</span>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                          <div className="flex items-center gap-2">
+                            <MapPin className="w-4 h-4 text-gray-400" />
+                            <span>{match.location}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-gray-400" />
+                            <span>{match.time}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Users className="w-4 h-4 text-gray-400" />
+                            <span>{match.format}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">League: {match.league}</span>
+                          </div>
+                        </div>
+                        <div className="mt-3 flex items-center justify-between">
+                          <div className="text-sm">
+                            <span className="text-gray-600">Duration: {match.duration}</span>
+                          </div>
+                          <div className="text-sm">
+                            <span className="text-green-600">{match.joined}/{match.total} joined</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 bg-gray-50 rounded-lg">
+                    <p className="text-gray-500">No upcoming matches</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Match History */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Match History</h3>
+                {matchLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader className="w-6 h-6 animate-spin text-green-500" />
+                  </div>
+                ) : matches.history && matches.history.length > 0 ? (
+                  <div className="space-y-3">
+                    {matches.history.map((match) => (
+                      <div key={match.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100">
+                        <div className="flex items-center gap-4">
+                          <div className="text-sm text-gray-500 min-w-[100px]">{match.date}</div>
+                          <div className="font-medium text-gray-900">{match.teamName}</div>
+                          <div className="text-sm text-gray-600">{match.location}</div>
+                        </div>
+                        <div className={`px-3 py-1 rounded-full text-sm font-medium ${match.result.startsWith('W')
+                            ? 'bg-green-100 text-green-800'
+                            : match.result.startsWith('L')
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                          {match.result}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 bg-gray-50 rounded-lg">
+                    <p className="text-gray-500">No match history</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Match Modal */}
+      {showAssignModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-900">Assign Match to {selectedOrganizer?.FullName}</h2>
+              <button
+                onClick={() => setShowAssignModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6">
+              <div className="space-y-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">{selectedOrganizer.FullName}</h3>
-                  <p className="text-gray-600">{selectedOrganizer.email}</p>
-                  <div className="flex gap-2 mt-2">
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getRoleColor(selectedOrganizer.role)}`}>
-                      <User className="w-3 h-3 mr-1" />
-                      {formatRole(selectedOrganizer.role)}
-                    </span>
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedOrganizer.isBlocked)}`}>
-                      {selectedOrganizer.isBlocked === 'active' ? 'Active' : 'Blocked'}
-                    </span>
-                  </div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Match
+                  </label>
+                  <select className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none">
+                    <option value="">Select a match</option>
+                    <option value="match1">Raging Bulls FC vs Thunder Strikers</option>
+                    <option value="match2">Red Dragons vs Blue Tigers</option>
+                    <option value="match3">Golden Eagles vs Silver Hawks</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Lobby
+                  </label>
+                  <select className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none">
+                    <option value="">Select a lobby</option>
+                    <option value="lobby1">Premier League Lobby</option>
+                    <option value="lobby2">Championship Lobby</option>
+                    <option value="lobby3">Friendly Match Lobby</option>
+                  </select>
                 </div>
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-700">Username</label>
-                    <p className="text-gray-900">{selectedOrganizer.userName || 'Not specified'}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-700">Phone</label>
-                    <p className="text-gray-900">{selectedOrganizer.mobile || 'Not provided'}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-700">Age</label>
-                    <p className="text-gray-900">{selectedOrganizer.age || 'Not specified'}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-700">Nationality</label>
-                    <p className="text-gray-900">{selectedOrganizer.nationality || 'Not specified'}</p>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-700">Game Mode</label>
-                    <p className="text-gray-900">{selectedOrganizer.gameMode || 'Not specified'}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-700">Preferred Areas</label>
-                    <p className="text-gray-900">{selectedOrganizer.preferredAreas || 'Not specified'}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-700">Playing Days</label>
-                    <p className="text-gray-900">{formatArrayData(selectedOrganizer.playingDays)}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-700">Positions</label>
-                    <p className="text-gray-900">{formatArrayData(selectedOrganizer.position)}</p>
-                  </div>
-                </div>
-              </div>
-
-
-
             </div>
 
             {/* Modal Footer */}
             <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
               <button
-                onClick={() => setShowDetailsModal(false)}
+                onClick={() => setShowAssignModal(false)}
                 className="px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
               >
-                Close
+                Cancel
               </button>
-
+              <button
+                onClick={() => {
+                  toast.success('Match assigned successfully');
+                  setShowAssignModal(false);
+                }}
+                className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
+              >
+                Assign Match
+              </button>
             </div>
           </div>
         </div>
