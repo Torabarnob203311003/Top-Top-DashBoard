@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars */
 import React, { useState, useEffect } from 'react';
-import { Eye, Edit, Trash2, Plus, Search, Loader, Ban, CheckCircle, X, User, Calendar, Clock, MapPin, Users, ChevronRight } from 'lucide-react';
+import { Eye, Edit, Trash2, Plus, Search, Loader, Ban, CheckCircle, X, User, Calendar, Clock, MapPin, Users, ChevronRight, Trophy, Target, Shield, Gamepad2, Crown, DollarSign } from 'lucide-react';
 import AddOrganizer from './AddOrganizer';
 import toast from 'react-hot-toast';
 
@@ -12,9 +12,12 @@ const Organizers = () => {
   const [actionLoading, setActionLoading] = useState(null);
   const [selectedOrganizer, setSelectedOrganizer] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [matches, setMatches] = useState([]);
+  const [lobbyData, setLobbyData] = useState({ upcomingLobby: [], completeLobby: [], totalEarning: 0 });
   const [matchLoading, setMatchLoading] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
+  const [availableLobbies, setAvailableLobbies] = useState([]);
+  const [selectedLobbyId, setSelectedLobbyId] = useState('');
+  const [assignLoading, setAssignLoading] = useState(false);
 
   // Fetch organizers from API
   useEffect(() => {
@@ -52,13 +55,12 @@ const Organizers = () => {
     }
   };
 
-  // Fetch matches for selected organizer
-  const fetchOrganizerMatches = async (organizerId) => {
+  // Fetch lobbies for selected organizer
+  const fetchOrganizerLobbies = async (organizerId) => {
     setMatchLoading(true);
     try {
       const token = localStorage.getItem('accessToken');
-      // This endpoint would need to be created in your backend
-      const response = await fetch(`https://api.toptopfootball.com/api/v1/matches/organizer/${organizerId}`, {
+      const response = await fetch(`https://api.toptopfootball.com/api/v1/lobby/organizer-lobby/${organizerId}`, {
         headers: {
           'Authorization': `${token}`,
           'Content-Type': 'application/json'
@@ -66,80 +68,60 @@ const Organizers = () => {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch matches');
+        throw new Error('Failed to fetch lobbies');
       }
 
       const result = await response.json();
 
       if (result.success) {
-        setMatches(result.data);
+        console.log('Lobby Data:', result.data); // Debug log
+        setLobbyData({
+          upcomingLobby: result.data.upcomingLobby || [],
+          completeLobby: result.data.completeLobby || [],
+          totalEarning: result.data.totalEarning || 0
+        });
       } else {
-        toast.error(result.message || 'Failed to fetch matches');
-        // Mock data for demonstration
-        setMatches(getMockMatches());
+        toast.error(result.message || 'Failed to fetch lobbies');
       }
     } catch (error) {
-      console.error('Error fetching matches:', error);
-      // Mock data for demonstration
-      setMatches(getMockMatches());
+      console.error('Error fetching lobbies:', error);
+      toast.error('Failed to load lobby data');
     } finally {
       setMatchLoading(false);
     }
   };
 
-  // Mock matches data for demonstration
-  const getMockMatches = () => {
-    return {
-      upcoming: [
-        {
-          id: 1,
-          teamName: 'Raging Bulls FC',
-          location: 'New Westbury',
-          time: '05:45 PM',
-          duration: '80 Minutes',
-          format: '7v7',
-          league: 'S13',
-          joined: 5,
-          total: 16,
-          date: '2025-07-30'
-        },
-        {
-          id: 2,
-          teamName: 'Thunder Strikers',
-          location: 'Central Park',
-          time: '07:30 PM',
-          duration: '90 Minutes',
-          format: '11v11',
-          league: 'Premier',
-          joined: 11,
-          total: 22,
-          date: '2025-08-02'
+  // Fetch available lobbies for assignment
+  const fetchAvailableLobbies = async () => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch('https://api.toptopfootball.com/api/v1/lobby/all-match', {
+        headers: {
+          'Authorization': `${token}`,
+          'Content-Type': 'application/json'
         }
-      ],
-      history: [
-        {
-          id: 3,
-          date: '2025-07-22',
-          teamName: 'Thunder Strikers',
-          result: 'W 3-2',
-          location: 'New Westbury'
-        },
-        {
-          id: 4,
-          date: '2025-07-18',
-          teamName: 'Red Dragons',
-          result: 'L 1-4',
-          location: 'Central Park'
-        },
-        {
-          id: 5,
-          date: '2025-07-15',
-          teamName: 'Blue Tigers',
-          result: 'D 2-2',
-          location: 'East Field'
-        }
-      ]
-    };
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch lobbies');
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Filter lobbies that don't have an organizer or have different organizer
+        const filteredLobbies = result.data.filter(lobby =>
+          !lobby.organizer || lobby.organizer !== selectedOrganizer?._id
+        );
+        console.log('Available Lobbies:', filteredLobbies); // Debug log
+        setAvailableLobbies(filteredLobbies);
+      } else {
+        toast.error(result.message || 'Failed to fetch available lobbies');
+      }
+    } catch (error) {
+      console.error('Error fetching lobbies:', error);
+      toast.error('Failed to load available lobbies');
+    }
   };
 
   const handleDelete = async (organizerId, organizerName) => {
@@ -222,22 +204,138 @@ const Organizers = () => {
 
   const handleViewDetails = (organizer) => {
     setSelectedOrganizer(organizer);
-    fetchOrganizerMatches(organizer._id);
+    fetchOrganizerLobbies(organizer._id);
     setShowDetailsModal(true);
   };
 
-  const handleAssignMatch = () => {
+  const handleAssignMatch = async () => {
     setShowAssignModal(true);
-    // Here you would fetch available lobbies/matches
+    await fetchAvailableLobbies();
   };
 
-  // Filter organizers based on search term
-  const filteredOrganizers = organizers.filter(organizer =>
-    organizer.FullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    organizer.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    organizer.mobile?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    organizer.role?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handleAssignLobby = async () => {
+    if (!selectedLobbyId) {
+      toast.error('Please select a lobby');
+      return;
+    }
+
+    setAssignLoading(true);
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`https://api.toptopfootball.com/api/v1/lobby/assign-lobby/${selectedOrganizer._id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ lobbyId: selectedLobbyId })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to assign lobby');
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success('Lobby assigned successfully');
+        setShowAssignModal(false);
+        setSelectedLobbyId('');
+        // Refresh lobby data
+        fetchOrganizerLobbies(selectedOrganizer._id);
+      } else {
+        toast.error(result.message || 'Failed to assign lobby');
+      }
+    } catch (error) {
+      console.error('Error assigning lobby:', error);
+      toast.error('Failed to assign lobby');
+    } finally {
+      setAssignLoading(false);
+    }
+  };
+
+  // Helper function to get team details based on match type
+  const getTeamDetails = (lobby) => {
+    if (lobby.matchType === 'teams') {
+      // Team match - check if team1 and team2 exist with teamId
+      const team1Name = lobby.team1?.teamId?.teamName || 'Team X';
+      const team2Name = lobby.team2?.teamId?.teamName || 'Team Y';
+      const team1Image = lobby.team1?.teamId?.image || '/default-team.png';
+      const team2Image = lobby.team2?.teamId?.image || '/default-team.png';
+
+      return {
+        team1Name,
+        team2Name,
+        team1Image,
+        team2Image,
+        isTeams: true
+      };
+    } else {
+      // Solo match - use defaultTeam
+      const team1Name = lobby.defaultTeam1?.teamName || 'Team X';
+      const team2Name = lobby.defaultTeam2?.teamName || 'Team Y';
+
+      return {
+        team1Name,
+        team2Name,
+        team1Image: null,
+        team2Image: null,
+        isTeams: false
+      };
+    }
+  };
+
+  // Calculate total joined players
+  const calculateTotalPlayers = (lobby) => {
+    if (lobby.matchType === 'teams') {
+      const team1Players = lobby.team1?.players?.length || 0;
+      const team2Players = lobby.team2?.players?.length || 0;
+      return team1Players + team2Players;
+    } else {
+      const defaultTeam1Players = lobby.defaultTeam1?.players?.length || 0;
+      const defaultTeam2Players = lobby.defaultTeam2?.players?.length || 0;
+      return defaultTeam1Players + defaultTeam2Players;
+    }
+  };
+
+  // Format date for display
+  const formatDate = (dateString) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        weekday: 'short',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (error) {
+      return dateString;
+    }
+  };
+
+  // Get lobby type badge color
+  const getLobbyTypeColor = (type) => {
+    switch (type) {
+      case 'teams':
+        return 'bg-blue-100 text-blue-800 border border-blue-200';
+      case 'solo':
+        return 'bg-purple-100 text-purple-800 border border-purple-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border border-gray-200';
+    }
+  };
+
+  // Get privacy badge color
+  const getPrivacyColor = (privacy) => {
+    switch (privacy) {
+      case 'public':
+        return 'bg-green-100 text-green-800 border border-green-200';
+      case 'private':
+        return 'bg-orange-100 text-orange-800 border border-orange-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border border-gray-200';
+    }
+  };
 
   // Get status badge color
   const getStatusColor = (status) => {
@@ -266,11 +364,13 @@ const Organizers = () => {
     return role.charAt(0).toUpperCase() + role.slice(1);
   };
 
-  // Format array data for display
-  const formatArrayData = (data) => {
-    if (!data || data.length === 0) return 'Not specified';
-    return data.join(', ');
-  };
+  // Filter organizers based on search term
+  const filteredOrganizers = organizers.filter(organizer =>
+    organizer.FullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    organizer.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    organizer.mobile?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    organizer.role?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   if (showAdd) {
     return (
@@ -286,197 +386,228 @@ const Organizers = () => {
   if (loading) {
     return (
       <div className="bg-gray-50 min-h-screen p-4 flex items-center justify-center">
-        <div className="flex items-center gap-3">
-          <Loader className="w-6 h-6 animate-spin text-green-500" />
-          <span className="text-gray-600">Loading organizers...</span>
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative">
+            <div className="w-16 h-16 border-4 border-gray-200 border-t-green-500 rounded-full animate-spin"></div>
+            <Gamepad2 className="w-8 h-8 text-green-500 absolute inset-0 m-auto" />
+          </div>
+          <span className="text-gray-600 font-medium">Loading organizers...</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-gray-50 min-h-screen p-4">
+    <div className="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen p-4 md:p-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 md:mb-8 gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-black">Organizers</h1>
-          <p className="text-sm text-gray-600 mt-1">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Organizers</h1>
+          <p className="text-sm text-gray-600 mt-1 md:mt-2">
             Total {filteredOrganizers.length} organizer{filteredOrganizers.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col md:flex-row items-start md:items-center gap-3 w-full md:w-auto">
           <button
-            className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors"
+            className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 py-3 rounded-lg text-sm font-medium flex items-center gap-2 transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-xl w-full md:w-auto justify-center"
             onClick={() => setShowAdd(true)}
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-5 h-5" />
             Add Organizer
           </button>
-          <div className="relative">
+          <div className="relative w-full md:w-64">
             <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
             <input
               type="text"
               placeholder="Search organizers..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none w-64"
+              className="pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none w-full bg-white shadow-sm"
             />
           </div>
         </div>
       </div>
 
       {/* Table Container */}
-      <div className="bg-white rounded-lg overflow-hidden shadow-sm">
-        <table className="w-full">
-          {/* Table Header */}
-          <thead>
-            <tr className="bg-gray-50">
-              <th className="text-left py-4 px-6 text-sm font-medium text-gray-700">Name</th>
-              <th className="text-left py-4 px-6 text-sm font-medium text-gray-700">Email</th>
-              <th className="text-left py-4 px-6 text-sm font-medium text-gray-700">Phone</th>
-              <th className="text-left py-4 px-6 text-sm font-medium text-gray-700">Role</th>
-              <th className="text-left py-4 px-6 text-sm font-medium text-gray-700">Status</th>
-              <th className="text-left py-4 px-6 text-sm font-medium text-gray-700">Actions</th>
-            </tr>
-          </thead>
-
-          {/* Table Body */}
-          <tbody>
-            {filteredOrganizers.map((organizer) => (
-              <tr key={organizer._id} className="border-b border-gray-100 hover:bg-gray-50">
-                {/* Name with Avatar */}
-                <td className="py-4 px-6">
-                  <div className="flex items-center space-x-3">
-                    <img
-                      src={organizer.imageUrl || '/default-avatar.png'}
-                      alt={organizer.FullName}
-                      className="w-10 h-10 rounded-full object-cover border"
-                      onError={(e) => {
-                        e.target.src = '/default-avatar.png';
-                      }}
-                    />
-                    <div>
-                      <span className="text-sm font-medium text-black block">{organizer.FullName}</span>
-                      {organizer.userName && organizer.userName !== 'N/A' && (
-                        <span className="text-xs text-gray-500">@{organizer.userName}</span>
-                      )}
-                    </div>
-                  </div>
-                </td>
-
-                {/* Email */}
-                <td className="py-4 px-6">
-                  <span className="text-sm text-gray-600">{organizer.email}</span>
-                </td>
-
-                {/* Phone */}
-                <td className="py-4 px-6">
-                  <span className="text-sm text-gray-600">
-                    {organizer.mobile && organizer.mobile !== 'N/A' ? organizer.mobile : 'Not provided'}
-                  </span>
-                </td>
-
-                {/* Role */}
-                <td className="py-4 px-6">
-                  <div className="flex items-center gap-2">
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getRoleColor(organizer.role)}`}>
-                      <User className="w-3 h-3 mr-1" />
-                      {formatRole(organizer.role)}
-                    </span>
-                  </div>
-                </td>
-
-                {/* Status */}
-                <td className="py-4 px-6">
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(organizer.isBlocked)}`}>
-                    {organizer.isBlocked === 'active' ? 'Active' : 'Blocked'}
-                  </span>
-                </td>
-
-                {/* Actions */}
-                <td className="py-4 px-6">
-                  <div className="flex items-center space-x-2">
-                    {/* View Details Button */}
-                    <button
-                      onClick={() => handleViewDetails(organizer)}
-                      className="p-2 rounded-md hover:bg-blue-50 transition-colors text-blue-600"
-                      title="View Details"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
-
-                    {/* Block/Unblock Button */}
-                    <button
-                      onClick={() => handleBlockToggle(organizer._id, organizer.isBlocked)}
-                      disabled={actionLoading === `block-${organizer._id}`}
-                      className={`p-2 rounded-md transition-colors ${organizer.isBlocked === 'active'
-                        ? 'text-orange-600 hover:bg-orange-50'
-                        : 'text-green-600 hover:bg-green-50'
-                        } ${actionLoading === `block-${organizer._id}` ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      title={organizer.isBlocked === 'active' ? 'Block organizer' : 'Unblock organizer'}
-                    >
-                      {actionLoading === `block-${organizer._id}` ? (
-                        <Loader className="w-4 h-4 animate-spin" />
-                      ) : organizer.isBlocked === 'active' ? (
-                        <Ban className="w-4 h-4" />
-                      ) : (
-                        <CheckCircle className="w-4 h-4" />
-                      )}
-                    </button>
-
-                    {/* Delete Button */}
-                    <button
-                      onClick={() => handleDelete(organizer._id, organizer.FullName)}
-                      disabled={actionLoading === `delete-${organizer._id}`}
-                      className="p-2 rounded-md hover:bg-red-50 transition-colors text-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Delete organizer"
-                    >
-                      {actionLoading === `delete-${organizer._id}` ? (
-                        <Loader className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="w-4 h-4" />
-                      )}
-                    </button>
-                  </div>
-                </td>
+      <div className="bg-white rounded-xl overflow-hidden shadow-lg">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            {/* Table Header */}
+            <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+              <tr>
+                <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Name</th>
+                <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Email</th>
+                <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Phone</th>
+                <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Role</th>
+                <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Status</th>
+                <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
 
-        {filteredOrganizers.length === 0 && (
-          <div className="text-center py-8">
-            <p className="text-gray-500">No organizers found</p>
-          </div>
-        )}
+            {/* Table Body */}
+            <tbody className="divide-y divide-gray-100">
+              {filteredOrganizers.map((organizer) => (
+                <tr key={organizer._id} className="hover:bg-gray-50 transition-colors duration-150">
+                  {/* Name with Avatar */}
+                  <td className="py-4 px-6">
+                    <div className="flex items-center space-x-3">
+                      <div className="relative">
+                        <img
+                          src={organizer.imageUrl || '/default-avatar.png'}
+                          alt={organizer.FullName}
+                          className="w-12 h-12 rounded-xl object-cover border-2 border-gray-200 shadow-sm"
+                          onError={(e) => {
+                            e.target.src = '/default-avatar.png';
+                          }}
+                        />
+                        {organizer.role === 'admin' && (
+                          <div className="absolute -top-1 -right-1 bg-purple-500 text-white p-1 rounded-full">
+                            <Crown className="w-3 h-3" />
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <span className="text-sm font-semibold text-gray-900 block">{organizer.FullName}</span>
+                        {organizer.userName && organizer.userName !== 'N/A' && (
+                          <span className="text-xs text-gray-500">@{organizer.userName}</span>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+
+                  {/* Email */}
+                  <td className="py-4 px-6">
+                    <span className="text-sm text-gray-700">{organizer.email}</span>
+                  </td>
+
+                  {/* Phone */}
+                  <td className="py-4 px-6">
+                    <span className="text-sm text-gray-700">
+                      {organizer.mobile && organizer.mobile !== 'N/A' ? organizer.mobile : 'Not provided'}
+                    </span>
+                  </td>
+
+                  {/* Role */}
+                  <td className="py-4 px-6">
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium ${getRoleColor(organizer.role)}`}>
+                        <User className="w-3 h-3 mr-1.5" />
+                        {formatRole(organizer.role)}
+                      </span>
+                    </div>
+                  </td>
+
+                  {/* Status */}
+                  <td className="py-4 px-6">
+                    <span className={`inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium ${getStatusColor(organizer.isBlocked)}`}>
+                      {organizer.isBlocked === 'active' ? 'Active' : 'Blocked'}
+                    </span>
+                  </td>
+
+                  {/* Actions */}
+                  <td className="py-4 px-6">
+                    <div className="flex items-center space-x-2">
+                      {/* View Details Button */}
+                      <button
+                        onClick={() => handleViewDetails(organizer)}
+                        className="p-2 rounded-lg hover:bg-blue-50 transition-all duration-200 text-blue-600 hover:shadow-md"
+                        title="View Details"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+
+                      {/* Block/Unblock Button */}
+                      <button
+                        onClick={() => handleBlockToggle(organizer._id, organizer.isBlocked)}
+                        disabled={actionLoading === `block-${organizer._id}`}
+                        className={`p-2 rounded-lg transition-all duration-200 hover:shadow-md ${organizer.isBlocked === 'active'
+                            ? 'text-orange-600 hover:bg-orange-50'
+                            : 'text-green-600 hover:bg-green-50'
+                          } ${actionLoading === `block-${organizer._id}` ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        title={organizer.isBlocked === 'active' ? 'Block organizer' : 'Unblock organizer'}
+                      >
+                        {actionLoading === `block-${organizer._id}` ? (
+                          <Loader className="w-4 h-4 animate-spin" />
+                        ) : organizer.isBlocked === 'active' ? (
+                          <Ban className="w-4 h-4" />
+                        ) : (
+                          <CheckCircle className="w-4 h-4" />
+                        )}
+                      </button>
+
+                      {/* Delete Button */}
+                      <button
+                        onClick={() => handleDelete(organizer._id, organizer.FullName)}
+                        disabled={actionLoading === `delete-${organizer._id}`}
+                        className="p-2 rounded-lg hover:bg-red-50 transition-all duration-200 text-red-600 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Delete organizer"
+                      >
+                        {actionLoading === `delete-${organizer._id}` ? (
+                          <Loader className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {filteredOrganizers.length === 0 && (
+            <div className="text-center py-12">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
+                <User className="w-8 h-8 text-gray-400" />
+              </div>
+              <p className="text-gray-500 text-lg">No organizers found</p>
+              <p className="text-gray-400 text-sm mt-1">Try adjusting your search terms</p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Organizer Details Modal */}
       {showDetailsModal && selectedOrganizer && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
-              <div className="flex items-center gap-4">
-                <img
-                  src={selectedOrganizer.imageUrl || '/default-avatar.png'}
-                  alt={selectedOrganizer.FullName}
-                  className="w-12 h-12 rounded-full object-cover border"
-                  onError={(e) => {
-                    e.target.src = '/default-avatar.png';
-                  }}
-                />
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900">{selectedOrganizer.FullName}</h2>
-                  <p className="text-gray-600">{selectedOrganizer.email}</p>
+            <div className="sticky top-0 bg-white z-10 border-b border-gray-200 p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="relative">
+                    <img
+                      src={selectedOrganizer.imageUrl || '/default-avatar.png'}
+                      alt={selectedOrganizer.FullName}
+                      className="w-16 h-16 rounded-xl object-cover border-4 border-white shadow-lg"
+                      onError={(e) => {
+                        e.target.src = '/default-avatar.png';
+                      }}
+                    />
+                    <div className="absolute -bottom-1 -right-1 bg-green-500 text-white p-1.5 rounded-full shadow-lg">
+                      <Trophy className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">{selectedOrganizer.FullName}</h2>
+                    <p className="text-gray-600">{selectedOrganizer.email}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-medium ${getRoleColor(selectedOrganizer.role)}`}>
+                        {formatRole(selectedOrganizer.role)}
+                      </span>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-medium ${getStatusColor(selectedOrganizer.isBlocked)}`}>
+                        {selectedOrganizer.isBlocked === 'active' ? 'Active' : 'Blocked'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
+                <button
+                  onClick={() => setShowDetailsModal(false)}
+                  className="p-2 hover:bg-gray-100 rounded-xl transition-all duration-200"
+                >
+                  <X className="w-6 h-6" />
+                </button>
               </div>
-              <button
-                onClick={() => setShowDetailsModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
             </div>
 
             {/* Modal Content */}
@@ -485,148 +616,332 @@ const Organizers = () => {
               <div className="mb-8">
                 <button
                   onClick={handleAssignMatch}
-                  className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-medium flex items-center gap-2 transition-colors"
+                  className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-8 py-3 rounded-lg font-medium flex items-center gap-3 transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-xl"
                 >
                   <Plus className="w-5 h-5" />
-                  Assign New Match
+                  Assign New Lobby
                 </button>
               </div>
 
               {/* Stats Section */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div className="bg-blue-50 p-4 rounded-lg">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-2xl border border-blue-200">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600">Total Collection</p>
-                      <p className="text-2xl font-bold text-gray-900">$45,023</p>
+                      <p className="text-sm font-medium text-blue-600">Total Earnings</p>
+                      <p className="text-3xl font-bold text-gray-900 mt-2">
+                        AED {lobbyData.totalEarning ? lobbyData.totalEarning.toLocaleString() : '0'}
+                      </p>
+                      {lobbyData.totalEarning && (
+                        <p className="text-xs text-blue-500 mt-1">
+                          ${(lobbyData.totalEarning * 0.27).toFixed(2)} USD
+                        </p>
+                      )}
                     </div>
-                    <div className="bg-blue-100 p-3 rounded-full">
-                      <Users className="w-6 h-6 text-blue-600" />
+                    <div className="bg-white p-3 rounded-xl shadow-sm">
+                      <DollarSign className="w-8 h-8 text-blue-600" />
                     </div>
                   </div>
                 </div>
-                <div className="bg-green-50 p-4 rounded-lg">
+                <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-2xl border border-green-200">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600">Upcoming Matches</p>
-                      <p className="text-2xl font-bold text-gray-900">{matches.upcoming?.length || 0}</p>
+                      <p className="text-sm font-medium text-green-600">Upcoming Lobbies</p>
+                      <p className="text-3xl font-bold text-gray-900 mt-2">{lobbyData.upcomingLobby?.length || 0}</p>
                     </div>
-                    <div className="bg-green-100 p-3 rounded-full">
-                      <Calendar className="w-6 h-6 text-green-600" />
+                    <div className="bg-white p-3 rounded-xl shadow-sm">
+                      <Calendar className="w-8 h-8 text-green-600" />
                     </div>
                   </div>
                 </div>
-                <div className="bg-orange-50 p-4 rounded-lg">
+                <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-6 rounded-2xl border border-orange-200">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600">Match History</p>
-                      <p className="text-2xl font-bold text-gray-900">{matches.history?.length || 0}</p>
+                      <p className="text-sm font-medium text-orange-600">Completed Lobbies</p>
+                      <p className="text-3xl font-bold text-gray-900 mt-2">{lobbyData.completeLobby?.length || 0}</p>
                     </div>
-                    <div className="bg-orange-100 p-3 rounded-full">
-                      <Clock className="w-6 h-6 text-orange-600" />
+                    <div className="bg-white p-3 rounded-xl shadow-sm">
+                      <Shield className="w-8 h-8 text-orange-600" />
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Upcoming Matches */}
-              <div className="mb-8">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Upcoming Matches</h3>
+              {/* Upcoming Lobbies */}
+              <div className="mb-10">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-bold text-gray-900">Upcoming Lobbies</h3>
+                  <span className="text-sm text-gray-500">{lobbyData.upcomingLobby?.length || 0} matches</span>
+                </div>
                 {matchLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader className="w-6 h-6 animate-spin text-green-500" />
+                  <div className="flex items-center justify-center py-12">
+                    <div className="text-center">
+                      <div className="relative">
+                        <div className="w-16 h-16 border-4 border-gray-200 border-t-green-500 rounded-full animate-spin"></div>
+                        <Target className="w-8 h-8 text-green-500 absolute inset-0 m-auto" />
+                      </div>
+                      <p className="text-gray-600 mt-4">Loading lobbies...</p>
+                    </div>
                   </div>
-                ) : matches.upcoming && matches.upcoming.length > 0 ? (
+                ) : lobbyData.upcomingLobby && lobbyData.upcomingLobby.length > 0 ? (
                   <div className="space-y-4">
-                    {matches.upcoming.map((match) => (
-                      <div key={match.id} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-medium text-gray-900">{match.teamName}</h4>
-                          <span className="text-sm text-gray-600">{match.date}</span>
+                    {lobbyData.upcomingLobby.map((lobby) => {
+                      const teamDetails = getTeamDetails(lobby);
+                      const totalPlayers = calculateTotalPlayers(lobby);
+
+                      return (
+                        <div key={lobby._id} className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-2xl border border-gray-200 hover:border-green-300 transition-all duration-200 shadow-sm hover:shadow-md">
+                          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-3">
+                                <h4 className="text-lg font-bold text-gray-900">{lobby.title}</h4>
+                                <div className="flex items-center gap-2">
+                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-medium ${getLobbyTypeColor(lobby.matchType)}`}>
+                                    {lobby.matchType === 'teams' ? 'Team Match' : 'Solo Match'}
+                                  </span>
+                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-medium ${getPrivacyColor(lobby.matchPrivacy)}`}>
+                                    {lobby.matchPrivacy}
+                                  </span>
+                                  {lobby.privateKey && (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
+                                      Key: {lobby.privateKey}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                                <div className="flex items-center gap-2">
+                                  <MapPin className="w-4 h-4 text-gray-400" />
+                                  <span className="text-gray-700">{lobby.location?.address}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Clock className="w-4 h-4 text-gray-400" />
+                                  <span className="text-gray-700">{lobby.time}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Calendar className="w-4 h-4 text-gray-400" />
+                                  <span className="text-gray-700">{formatDate(lobby.date)}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Users className="w-4 h-4 text-gray-400" />
+                                  <span className="text-gray-700">{lobby.teamSize}v{lobby.teamSize}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="text-right">
+                              <div className="text-2xl font-bold text-green-600">AED {lobby.price}</div>
+                              <div className="text-sm text-gray-500">per player</div>
+                            </div>
+                          </div>
+
+                          {/* Teams Display */}
+                          <div className="mt-6">
+                            <div className="flex items-center justify-center gap-6">
+                              {/* Team 1 */}
+                              <div className="flex-1 text-center">
+                                {teamDetails.isTeams ? (
+                                  <div className="flex flex-col items-center">
+                                    {teamDetails.team1Image && (
+                                      <img
+                                        src={teamDetails.team1Image}
+                                        alt={teamDetails.team1Name}
+                                        className="w-16 h-16 rounded-xl object-cover border-2 border-blue-200 mb-2 shadow-sm"
+                                        onError={(e) => {
+                                          e.target.src = '/default-team.png';
+                                        }}
+                                      />
+                                    )}
+                                    <span className="font-semibold text-gray-900">{teamDetails.team1Name}</span>
+                                    {lobby.matchType === 'teams' && (
+                                      <div className="text-xs text-gray-500 mt-1">
+                                        {lobby.team1?.teamId?.userName || ''}
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-xl">
+                                    <span className="font-bold text-gray-900 text-lg">{teamDetails.team1Name}</span>
+                                    <p className="text-xs text-gray-500 mt-1">Default Team</p>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* VS */}
+                              <div className="px-4">
+                                <div className="bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 font-bold px-4 py-2 rounded-full">
+                                  VS
+                                </div>
+                              </div>
+
+                              {/* Team 2 */}
+                              <div className="flex-1 text-center">
+                                {teamDetails.isTeams ? (
+                                  <div className="flex flex-col items-center">
+                                    {teamDetails.team2Image && (
+                                      <img
+                                        src={teamDetails.team2Image}
+                                        alt={teamDetails.team2Name}
+                                        className="w-16 h-16 rounded-xl object-cover border-2 border-red-200 mb-2 shadow-sm"
+                                        onError={(e) => {
+                                          e.target.src = '/default-team.png';
+                                        }}
+                                      />
+                                    )}
+                                    <span className="font-semibold text-gray-900">{teamDetails.team2Name}</span>
+                                    {lobby.matchType === 'teams' && (
+                                      <div className="text-xs text-gray-500 mt-1">
+                                        {lobby.team2?.teamId?.userName || ''}
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="bg-gradient-to-r from-red-50 to-red-100 p-4 rounded-xl">
+                                    <span className="font-bold text-gray-900 text-lg">{teamDetails.team2Name}</span>
+                                    <p className="text-xs text-gray-500 mt-1">Default Team</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Additional Info */}
+                          <div className="mt-6 pt-6 border-t border-gray-100">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                              <div className="text-center">
+                                <div className="text-gray-500">Duration</div>
+                                <div className="font-medium text-gray-900">{lobby.matchTime}</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-gray-500">Joined</div>
+                                <div className="font-medium text-gray-900">{totalPlayers}/{lobby.maxSlot}</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-gray-500">Format</div>
+                                <div className="font-medium text-gray-900">
+                                  {lobby.matchType === 'teams' ? 'Team vs Team' : 'Solo Players'}
+                                </div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-gray-500">Status</div>
+                                <div className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-medium ${lobby.lobbyStatus === 'ongoing' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                                  }`}>
+                                  {lobby.lobbyStatus || 'Upcoming'}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Additional Features */}
+                            <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+                              <div className="text-center">
+                                <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg ${lobby.goalkeeper ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                                  }`}>
+                                  <span className="text-xs">GK:</span>
+                                  <span className="font-medium">{lobby.goalkeeper ? 'Yes' : 'No'}</span>
+                                </div>
+                              </div>
+                              <div className="text-center">
+                                <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg ${lobby.referee ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                                  }`}>
+                                  <span className="text-xs">Referee:</span>
+                                  <span className="font-medium">{lobby.referee ? 'Yes' : 'No'}</span>
+                                </div>
+                              </div>
+                              <div className="text-center">
+                                <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg ${lobby.camera ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                                  }`}>
+                                  <span className="text-xs">Camera:</span>
+                                  <span className="font-medium">{lobby.camera ? 'Yes' : 'No'}</span>
+                                </div>
+                              </div>
+                              <div className="text-center">
+                                <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg ${lobby.matchPublished ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                                  }`}>
+                                  <span className="text-xs">Published:</span>
+                                  <span className="font-medium">{lobby.matchPublished ? 'Yes' : 'No'}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Note */}
+                            {lobby.note && (
+                              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                                <p className="text-sm text-blue-800">{lobby.note}</p>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                          <div className="flex items-center gap-2">
-                            <MapPin className="w-4 h-4 text-gray-400" />
-                            <span>{match.location}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Clock className="w-4 h-4 text-gray-400" />
-                            <span>{match.time}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Users className="w-4 h-4 text-gray-400" />
-                            <span>{match.format}</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-600">League: {match.league}</span>
-                          </div>
-                        </div>
-                        <div className="mt-3 flex items-center justify-between">
-                          <div className="text-sm">
-                            <span className="text-gray-600">Duration: {match.duration}</span>
-                          </div>
-                          <div className="text-sm">
-                            <span className="text-green-600">{match.joined}/{match.total} joined</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
-                  <div className="text-center py-8 bg-gray-50 rounded-lg">
-                    <p className="text-gray-500">No upcoming matches</p>
+                  <div className="text-center py-12 bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl">
+                    <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-full mb-4 shadow-sm">
+                      <Target className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <p className="text-gray-600 text-lg">No upcoming lobbies</p>
+                    <p className="text-gray-400 text-sm mt-1">Assign new lobbies to this organizer</p>
                   </div>
                 )}
               </div>
 
-              {/* Match History */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Match History</h3>
-                {matchLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader className="w-6 h-6 animate-spin text-green-500" />
+              {/* Completed Lobbies */}
+              {lobbyData.completeLobby && lobbyData.completeLobby.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-xl font-bold text-gray-900">Completed Lobbies</h3>
+                    <span className="text-sm text-gray-500">{lobbyData.completeLobby.length} matches</span>
                   </div>
-                ) : matches.history && matches.history.length > 0 ? (
                   <div className="space-y-3">
-                    {matches.history.map((match) => (
-                      <div key={match.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100">
-                        <div className="flex items-center gap-4">
-                          <div className="text-sm text-gray-500 min-w-[100px]">{match.date}</div>
-                          <div className="font-medium text-gray-900">{match.teamName}</div>
-                          <div className="text-sm text-gray-600">{match.location}</div>
+                    {lobbyData.completeLobby.map((lobby) => {
+                      const teamDetails = getTeamDetails(lobby);
+                      return (
+                        <div key={lobby._id} className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl hover:bg-gray-100 transition-all duration-200">
+                          <div className="flex items-center gap-4">
+                            <div className="text-sm text-gray-500 min-w-[120px]">{formatDate(lobby.date)}</div>
+                            <div className="flex items-center gap-3">
+                              <span className="font-medium text-gray-900">{teamDetails.team1Name}</span>
+                              <span className="text-gray-400">vs</span>
+                              <span className="font-medium text-gray-900">{teamDetails.team2Name}</span>
+                            </div>
+                            <div className="text-sm text-gray-600">{lobby.location?.address}</div>
+                          </div>
+                          <div className={`px-3 py-1.5 rounded-lg text-sm font-medium ${lobby.goalTeam1 > lobby.goalTeam2
+                              ? 'bg-green-100 text-green-800'
+                              : lobby.goalTeam1 < lobby.goalTeam2
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-yellow-100 text-yellow-800'
+                            }`}>
+                            {lobby.goalTeam1} - {lobby.goalTeam2}
+                          </div>
                         </div>
-                        <div className={`px-3 py-1 rounded-full text-sm font-medium ${match.result.startsWith('W')
-                            ? 'bg-green-100 text-green-800'
-                            : match.result.startsWith('L')
-                              ? 'bg-red-100 text-red-800'
-                              : 'bg-yellow-100 text-yellow-800'
-                          }`}>
-                          {match.result}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
-                ) : (
-                  <div className="text-center py-8 bg-gray-50 rounded-lg">
-                    <p className="text-gray-500">No match history</p>
-                  </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
       )}
 
-      {/* Assign Match Modal */}
+      {/* Assign Lobby Modal */}
       {showAssignModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl">
             {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900">Assign Match to {selectedOrganizer?.FullName}</h2>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Assign Lobby</h2>
+                <p className="text-gray-600 text-sm mt-1">Select a lobby to assign to {selectedOrganizer?.FullName}</p>
+              </div>
               <button
-                onClick={() => setShowAssignModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                onClick={() => {
+                  setShowAssignModal(false);
+                  setSelectedLobbyId('');
+                }}
+                className="p-2 hover:bg-gray-100 rounded-xl transition-all duration-200"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -634,28 +949,53 @@ const Organizers = () => {
 
             {/* Modal Content */}
             <div className="p-6">
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Match
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    Available Lobbies
                   </label>
-                  <select className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none">
-                    <option value="">Select a match</option>
-                    <option value="match1">Raging Bulls FC vs Thunder Strikers</option>
-                    <option value="match2">Red Dragons vs Blue Tigers</option>
-                    <option value="match3">Golden Eagles vs Silver Hawks</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Lobby
-                  </label>
-                  <select className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none">
-                    <option value="">Select a lobby</option>
-                    <option value="lobby1">Premier League Lobby</option>
-                    <option value="lobby2">Championship Lobby</option>
-                    <option value="lobby3">Friendly Match Lobby</option>
-                  </select>
+                  {availableLobbies.length > 0 ? (
+                    <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                      {availableLobbies.map((lobby) => {
+                        const teamDetails = getTeamDetails(lobby);
+                        return (
+                          <div
+                            key={lobby._id}
+                            className={`p-4 rounded-xl border cursor-pointer transition-all duration-200 ${selectedLobbyId === lobby._id
+                                ? 'border-green-500 bg-green-50'
+                                : 'border-gray-200 hover:border-green-300 hover:bg-gray-50'
+                              }`}
+                            onClick={() => setSelectedLobbyId(lobby._id)}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="font-medium text-gray-900">{lobby.title}</span>
+                              <span className="text-green-600 font-bold">AED {lobby.price}</span>
+                            </div>
+                            <div className="text-sm text-gray-600 mb-2">
+                              {teamDetails.team1Name} vs {teamDetails.team2Name}
+                            </div>
+                            <div className="flex items-center gap-4 text-xs text-gray-500">
+                              <span>{formatDate(lobby.date)}</span>
+                              <span>•</span>
+                              <span>{lobby.location?.address}</span>
+                              <span>•</span>
+                              <span className={`px-2 py-0.5 rounded ${getLobbyTypeColor(lobby.matchType)}`}>
+                                {lobby.matchType}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 bg-gray-50 rounded-xl">
+                      <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mb-3">
+                        <Target className="w-6 h-6 text-gray-400" />
+                      </div>
+                      <p className="text-gray-600">No available lobbies</p>
+                      <p className="text-gray-400 text-sm mt-1">All lobbies are already assigned</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -663,19 +1003,28 @@ const Organizers = () => {
             {/* Modal Footer */}
             <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
               <button
-                onClick={() => setShowAssignModal(false)}
-                className="px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                onClick={() => {
+                  setShowAssignModal(false);
+                  setSelectedLobbyId('');
+                }}
+                className="px-5 py-2.5 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-all duration-200 font-medium"
+                disabled={assignLoading}
               >
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  toast.success('Match assigned successfully');
-                  setShowAssignModal(false);
-                }}
-                className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
+                onClick={handleAssignLobby}
+                disabled={assignLoading || !selectedLobbyId}
+                className="px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Assign Match
+                {assignLoading ? (
+                  <span className="flex items-center gap-2">
+                    <Loader className="w-4 h-4 animate-spin" />
+                    Assigning...
+                  </span>
+                ) : (
+                  'Assign Lobby'
+                )}
               </button>
             </div>
           </div>

@@ -82,11 +82,11 @@ const Dashboard = () => {
 
   const StatCard = ({ icon: Icon, title, value, change, changeType, bgColor, iconColor, description }) => (
     <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-300">
-      <div className="flex items-start justify-between">
+      <div className="flex  items-start justify-between">
         <div className={`p-3 rounded-lg ${bgColor} mb-4`}>
           <Icon className={`w-6 h-6 ${iconColor}`} />
         </div>
-        <span className={`text-sm font-semibold ${changeType === 'positive' ? 'text-green-600 bg-green-50' :
+        <span className={`text-sm hidden font-semibold ${changeType === 'positive' ? 'text-green-600 bg-green-50' :
           changeType === 'negative' ? 'text-red-600 bg-red-50' : 'text-gray-600 bg-gray-50'
           } px-3 py-1 rounded-full`}>
           {changeType === 'positive' ? '↗' : changeType === 'negative' ? '↘' : '→'} {change}
@@ -173,7 +173,7 @@ const Dashboard = () => {
             icon={DollarSign}
             title="Total Revenue"
             value={`${dashboardData.totalRevenue?.toLocaleString() || '0'} AED`}
-            change={`${dashboardData.revenueGrowth || 0}%`}
+            // change={`${dashboardData.revenueGrowth || 0}%`}
             changeType={dashboardData.revenueGrowth > 0 ? 'positive' : dashboardData.revenueGrowth < 0 ? 'negative' : 'neutral'}
             bgColor="bg-green-50"
             iconColor="text-green-600"
@@ -183,7 +183,7 @@ const Dashboard = () => {
             icon={Package}
             title="Active Lobbies"
             value={dashboardData.lobbyCount?.toString() || '0'}
-            change={`${dashboardData.lobbyGrowth || 0}%`}
+            // change={`${dashboardData.lobbyGrowth || 0}%`}
             changeType={dashboardData.lobbyGrowth > 0 ? 'positive' : dashboardData.lobbyGrowth < 0 ? 'negative' : 'neutral'}
             bgColor="bg-orange-50"
             iconColor="text-orange-600"
@@ -193,7 +193,7 @@ const Dashboard = () => {
             icon={Users}
             title="Matches Played"
             value={dashboardData.totalMatches?.toString() || '0'}
-            change={`${dashboardData.matchGrowth || 0}%`}
+            // change={`${dashboardData.matchGrowth || 0}%`}
             changeType={dashboardData.matchGrowth > 0 ? 'positive' : dashboardData.matchGrowth < 0 ? 'negative' : 'neutral'}
             bgColor="bg-purple-50"
             iconColor="text-purple-600"
@@ -203,7 +203,7 @@ const Dashboard = () => {
             icon={Activity}
             title="Active Players"
             value={dashboardData.activePlayers?.toString() || '0'}
-            change={`${dashboardData.playerGrowth || 0}%`}
+            // change={`${dashboardData.playerGrowth || 0}%`}
             changeType={dashboardData.playerGrowth > 0 ? 'positive' : dashboardData.playerGrowth < 0 ? 'negative' : 'neutral'}
             bgColor="bg-blue-50"
             iconColor="text-blue-600"
