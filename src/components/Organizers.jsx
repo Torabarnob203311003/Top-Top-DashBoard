@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars */
 import React, { useState, useEffect } from 'react';
-import { Eye, Edit, Trash2, Plus, Search, Loader, Ban, CheckCircle, X, User, Calendar, Clock, MapPin, Users, ChevronRight, Trophy, Target, Shield, Gamepad2, Crown, DollarSign } from 'lucide-react';
+import { Eye, Edit, Trash2, Plus, Search, Loader, Ban, CheckCircle, X, User, Calendar, Clock, MapPin, Users, ChevronRight, Trophy, Target, Shield, Gamepad2, Crown, DollarSign, CheckCircle2, Clock3 } from 'lucide-react';
 import AddOrganizer from './AddOrganizer';
 import toast from 'react-hot-toast';
 
@@ -18,6 +18,7 @@ const Organizers = () => {
   const [availableLobbies, setAvailableLobbies] = useState([]);
   const [selectedLobbyId, setSelectedLobbyId] = useState('');
   const [assignLoading, setAssignLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming' or 'completed'
 
   // Fetch organizers from API
   useEffect(() => {
@@ -204,6 +205,7 @@ const Organizers = () => {
 
   const handleViewDetails = (organizer) => {
     setSelectedOrganizer(organizer);
+    setActiveTab('upcoming'); // Reset to upcoming tab
     fetchOrganizerLobbies(organizer._id);
     setShowDetailsModal(true);
   };
@@ -223,7 +225,7 @@ const Organizers = () => {
     try {
       const token = localStorage.getItem('accessToken');
       const response = await fetch(`https://api.toptopfootball.com/api/v1/lobby/assign-lobby/${selectedOrganizer._id}`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: {
           'Authorization': `${token}`,
           'Content-Type': 'application/json'
@@ -313,6 +315,20 @@ const Organizers = () => {
     }
   };
 
+  // Format date and time for completed lobbies
+  const formatDateTime = (dateString, timeString) => {
+    try {
+      const date = new Date(dateString);
+      return `${date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      })} • ${timeString}`;
+    } catch (error) {
+      return `${dateString} • ${timeString}`;
+    }
+  };
+
   // Get lobby type badge color
   const getLobbyTypeColor = (type) => {
     switch (type) {
@@ -342,6 +358,17 @@ const Organizers = () => {
     return status === 'active'
       ? 'bg-green-100 text-green-800 border border-green-200'
       : 'bg-red-100 text-red-800 border border-red-200';
+  };
+
+  // Get result badge color
+  const getResultColor = (goalTeam1, goalTeam2, teamIndex = 1) => {
+    if (goalTeam1 > goalTeam2) {
+      return teamIndex === 1 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+    } else if (goalTeam1 < goalTeam2) {
+      return teamIndex === 1 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800';
+    } else {
+      return 'bg-yellow-100 text-yellow-800';
+    }
   };
 
   // Get role badge color and icon
@@ -661,264 +688,444 @@ const Organizers = () => {
                       <p className="text-3xl font-bold text-gray-900 mt-2">{lobbyData.completeLobby?.length || 0}</p>
                     </div>
                     <div className="bg-white p-3 rounded-xl shadow-sm">
-                      <Shield className="w-8 h-8 text-orange-600" />
+                      <CheckCircle2 className="w-8 h-8 text-orange-600" />
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Upcoming Lobbies */}
-              <div className="mb-10">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-bold text-gray-900">Upcoming Lobbies</h3>
-                  <span className="text-sm text-gray-500">{lobbyData.upcomingLobby?.length || 0} matches</span>
+              {/* Lobby Tabs */}
+              <div className="mb-6">
+                <div className="border-b border-gray-200">
+                  <nav className="-mb-px flex space-x-8">
+                    <button
+                      onClick={() => setActiveTab('upcoming')}
+                      className={`py-3 px-1 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors duration-200 ${activeTab === 'upcoming'
+                          ? 'border-green-500 text-green-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }`}
+                    >
+                      <Clock3 className="w-4 h-4" />
+                      Upcoming Lobbies
+                      <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${activeTab === 'upcoming'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-gray-100 text-gray-800'
+                        }`}>
+                        {lobbyData.upcomingLobby?.length || 0}
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('completed')}
+                      className={`py-3 px-1 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors duration-200 ${activeTab === 'completed'
+                          ? 'border-orange-500 text-orange-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }`}
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      Completed Lobbies
+                      <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${activeTab === 'completed'
+                          ? 'bg-orange-100 text-orange-800'
+                          : 'bg-gray-100 text-gray-800'
+                        }`}>
+                        {lobbyData.completeLobby?.length || 0}
+                      </span>
+                    </button>
+                  </nav>
                 </div>
-                {matchLoading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="text-center">
-                      <div className="relative">
-                        <div className="w-16 h-16 border-4 border-gray-200 border-t-green-500 rounded-full animate-spin"></div>
-                        <Target className="w-8 h-8 text-green-500 absolute inset-0 m-auto" />
-                      </div>
-                      <p className="text-gray-600 mt-4">Loading lobbies...</p>
-                    </div>
-                  </div>
-                ) : lobbyData.upcomingLobby && lobbyData.upcomingLobby.length > 0 ? (
-                  <div className="space-y-4">
-                    {lobbyData.upcomingLobby.map((lobby) => {
-                      const teamDetails = getTeamDetails(lobby);
-                      const totalPlayers = calculateTotalPlayers(lobby);
+              </div>
 
-                      return (
-                        <div key={lobby._id} className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-2xl border border-gray-200 hover:border-green-300 transition-all duration-200 shadow-sm hover:shadow-md">
-                          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-3">
-                                <h4 className="text-lg font-bold text-gray-900">{lobby.title}</h4>
-                                <div className="flex items-center gap-2">
-                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-medium ${getLobbyTypeColor(lobby.matchType)}`}>
-                                    {lobby.matchType === 'teams' ? 'Team Match' : 'Solo Match'}
-                                  </span>
-                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-medium ${getPrivacyColor(lobby.matchPrivacy)}`}>
-                                    {lobby.matchPrivacy}
-                                  </span>
-                                  {lobby.privateKey && (
-                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
-                                      Key: {lobby.privateKey}
+              {/* Lobby Content */}
+              {matchLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-center">
+                    <div className="relative">
+                      <div className="w-16 h-16 border-4 border-gray-200 border-t-green-500 rounded-full animate-spin"></div>
+                      <Target className="w-8 h-8 text-green-500 absolute inset-0 m-auto" />
+                    </div>
+                    <p className="text-gray-600 mt-4">Loading lobbies...</p>
+                  </div>
+                </div>
+              ) : activeTab === 'upcoming' ? (
+                <div>
+                  {lobbyData.upcomingLobby && lobbyData.upcomingLobby.length > 0 ? (
+                    <div className="space-y-4">
+                      {lobbyData.upcomingLobby.map((lobby) => {
+                        const teamDetails = getTeamDetails(lobby);
+                        const totalPlayers = calculateTotalPlayers(lobby);
+
+                        return (
+                          <div key={lobby._id} className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-2xl border border-gray-200 hover:border-green-300 transition-all duration-200 shadow-sm hover:shadow-md">
+                            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-3">
+                                  <h4 className="text-lg font-bold text-gray-900">{lobby.title}</h4>
+                                  <div className="flex items-center gap-2">
+                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-medium ${getLobbyTypeColor(lobby.matchType)}`}>
+                                      {lobby.matchType === 'teams' ? 'Team Match' : 'Solo Match'}
                                     </span>
+                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-medium ${getPrivacyColor(lobby.matchPrivacy)}`}>
+                                      {lobby.matchPrivacy}
+                                    </span>
+                                    {lobby.privateKey && (
+                                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
+                                        Key: {lobby.privateKey}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                                  <div className="flex items-center gap-2">
+                                    <MapPin className="w-4 h-4 text-gray-400" />
+                                    <span className="text-gray-700">{lobby.location?.address}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Clock className="w-4 h-4 text-gray-400" />
+                                    <span className="text-gray-700">{lobby.time}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Calendar className="w-4 h-4 text-gray-400" />
+                                    <span className="text-gray-700">{formatDate(lobby.date)}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Users className="w-4 h-4 text-gray-400" />
+                                    <span className="text-gray-700">{lobby.teamSize}v{lobby.teamSize}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="text-right">
+                                <div className="text-2xl font-bold text-green-600">AED {lobby.price}</div>
+                                <div className="text-sm text-gray-500">per player</div>
+                              </div>
+                            </div>
+
+                            {/* Teams Display */}
+                            <div className="mt-6">
+                              <div className="flex items-center justify-center gap-6">
+                                {/* Team 1 */}
+                                <div className="flex-1 text-center">
+                                  {teamDetails.isTeams ? (
+                                    <div className="flex flex-col items-center">
+                                      {teamDetails.team1Image && (
+                                        <img
+                                          src={teamDetails.team1Image}
+                                          alt={teamDetails.team1Name}
+                                          className="w-16 h-16 rounded-xl object-cover border-2 border-blue-200 mb-2 shadow-sm"
+                                          onError={(e) => {
+                                            e.target.src = '/default-team.png';
+                                          }}
+                                        />
+                                      )}
+                                      <span className="font-semibold text-gray-900">{teamDetails.team1Name}</span>
+                                      {lobby.matchType === 'teams' && (
+                                        <div className="text-xs text-gray-500 mt-1">
+                                          {lobby.team1?.teamId?.userName || ''}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-xl">
+                                      <span className="font-bold text-gray-900 text-lg">{teamDetails.team1Name}</span>
+                                      <p className="text-xs text-gray-500 mt-1">Default Team</p>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* VS */}
+                                <div className="px-4">
+                                  <div className="bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 font-bold px-4 py-2 rounded-full">
+                                    VS
+                                  </div>
+                                </div>
+
+                                {/* Team 2 */}
+                                <div className="flex-1 text-center">
+                                  {teamDetails.isTeams ? (
+                                    <div className="flex flex-col items-center">
+                                      {teamDetails.team2Image && (
+                                        <img
+                                          src={teamDetails.team2Image}
+                                          alt={teamDetails.team2Name}
+                                          className="w-16 h-16 rounded-xl object-cover border-2 border-red-200 mb-2 shadow-sm"
+                                          onError={(e) => {
+                                            e.target.src = '/default-team.png';
+                                          }}
+                                        />
+                                      )}
+                                      <span className="font-semibold text-gray-900">{teamDetails.team2Name}</span>
+                                      {lobby.matchType === 'teams' && (
+                                        <div className="text-xs text-gray-500 mt-1">
+                                          {lobby.team2?.teamId?.userName || ''}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <div className="bg-gradient-to-r from-red-50 to-red-100 p-4 rounded-xl">
+                                      <span className="font-bold text-gray-900 text-lg">{teamDetails.team2Name}</span>
+                                      <p className="text-xs text-gray-500 mt-1">Default Team</p>
+                                    </div>
                                   )}
                                 </div>
                               </div>
-
-                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-                                <div className="flex items-center gap-2">
-                                  <MapPin className="w-4 h-4 text-gray-400" />
-                                  <span className="text-gray-700">{lobby.location?.address}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Clock className="w-4 h-4 text-gray-400" />
-                                  <span className="text-gray-700">{lobby.time}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Calendar className="w-4 h-4 text-gray-400" />
-                                  <span className="text-gray-700">{formatDate(lobby.date)}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Users className="w-4 h-4 text-gray-400" />
-                                  <span className="text-gray-700">{lobby.teamSize}v{lobby.teamSize}</span>
-                                </div>
-                              </div>
                             </div>
 
-                            <div className="text-right">
-                              <div className="text-2xl font-bold text-green-600">AED {lobby.price}</div>
-                              <div className="text-sm text-gray-500">per player</div>
+                            {/* Additional Info */}
+                            <div className="mt-6 pt-6 border-t border-gray-100">
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                <div className="text-center">
+                                  <div className="text-gray-500">Duration</div>
+                                  <div className="font-medium text-gray-900">{lobby.matchTime}</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-gray-500">Joined</div>
+                                  <div className="font-medium text-gray-900">{totalPlayers}/{lobby.maxSlot}</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-gray-500">Format</div>
+                                  <div className="font-medium text-gray-900">
+                                    {lobby.matchType === 'teams' ? 'Team vs Team' : 'Solo Players'}
+                                  </div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-gray-500">Status</div>
+                                  <div className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-medium ${lobby.lobbyStatus === 'ongoing' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                                    }`}>
+                                    {lobby.lobbyStatus || 'Upcoming'}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Additional Features */}
+                              <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <div className="text-center">
+                                  <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg ${lobby.goalkeeper ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                                    }`}>
+                                    <span className="text-xs">GK:</span>
+                                    <span className="font-medium">{lobby.goalkeeper ? 'Yes' : 'No'}</span>
+                                  </div>
+                                </div>
+                                <div className="text-center">
+                                  <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg ${lobby.referee ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                                    }`}>
+                                    <span className="text-xs">Referee:</span>
+                                    <span className="font-medium">{lobby.referee ? 'Yes' : 'No'}</span>
+                                  </div>
+                                </div>
+                                <div className="text-center">
+                                  <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg ${lobby.camera ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                                    }`}>
+                                    <span className="text-xs">Camera:</span>
+                                    <span className="font-medium">{lobby.camera ? 'Yes' : 'No'}</span>
+                                  </div>
+                                </div>
+                                <div className="text-center">
+                                  <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg ${lobby.matchPublished ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                                    }`}>
+                                    <span className="text-xs">Published:</span>
+                                    <span className="font-medium">{lobby.matchPublished ? 'Yes' : 'No'}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Note */}
+                              {lobby.note && (
+                                <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                                  <p className="text-sm text-blue-800">{lobby.note}</p>
+                                </div>
+                              )}
                             </div>
                           </div>
-
-                          {/* Teams Display */}
-                          <div className="mt-6">
-                            <div className="flex items-center justify-center gap-6">
-                              {/* Team 1 */}
-                              <div className="flex-1 text-center">
-                                {teamDetails.isTeams ? (
-                                  <div className="flex flex-col items-center">
-                                    {teamDetails.team1Image && (
-                                      <img
-                                        src={teamDetails.team1Image}
-                                        alt={teamDetails.team1Name}
-                                        className="w-16 h-16 rounded-xl object-cover border-2 border-blue-200 mb-2 shadow-sm"
-                                        onError={(e) => {
-                                          e.target.src = '/default-team.png';
-                                        }}
-                                      />
-                                    )}
-                                    <span className="font-semibold text-gray-900">{teamDetails.team1Name}</span>
-                                    {lobby.matchType === 'teams' && (
-                                      <div className="text-xs text-gray-500 mt-1">
-                                        {lobby.team1?.teamId?.userName || ''}
-                                      </div>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-xl">
-                                    <span className="font-bold text-gray-900 text-lg">{teamDetails.team1Name}</span>
-                                    <p className="text-xs text-gray-500 mt-1">Default Team</p>
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* VS */}
-                              <div className="px-4">
-                                <div className="bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 font-bold px-4 py-2 rounded-full">
-                                  VS
-                                </div>
-                              </div>
-
-                              {/* Team 2 */}
-                              <div className="flex-1 text-center">
-                                {teamDetails.isTeams ? (
-                                  <div className="flex flex-col items-center">
-                                    {teamDetails.team2Image && (
-                                      <img
-                                        src={teamDetails.team2Image}
-                                        alt={teamDetails.team2Name}
-                                        className="w-16 h-16 rounded-xl object-cover border-2 border-red-200 mb-2 shadow-sm"
-                                        onError={(e) => {
-                                          e.target.src = '/default-team.png';
-                                        }}
-                                      />
-                                    )}
-                                    <span className="font-semibold text-gray-900">{teamDetails.team2Name}</span>
-                                    {lobby.matchType === 'teams' && (
-                                      <div className="text-xs text-gray-500 mt-1">
-                                        {lobby.team2?.teamId?.userName || ''}
-                                      </div>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <div className="bg-gradient-to-r from-red-50 to-red-100 p-4 rounded-xl">
-                                    <span className="font-bold text-gray-900 text-lg">{teamDetails.team2Name}</span>
-                                    <p className="text-xs text-gray-500 mt-1">Default Team</p>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Additional Info */}
-                          <div className="mt-6 pt-6 border-t border-gray-100">
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                              <div className="text-center">
-                                <div className="text-gray-500">Duration</div>
-                                <div className="font-medium text-gray-900">{lobby.matchTime}</div>
-                              </div>
-                              <div className="text-center">
-                                <div className="text-gray-500">Joined</div>
-                                <div className="font-medium text-gray-900">{totalPlayers}/{lobby.maxSlot}</div>
-                              </div>
-                              <div className="text-center">
-                                <div className="text-gray-500">Format</div>
-                                <div className="font-medium text-gray-900">
-                                  {lobby.matchType === 'teams' ? 'Team vs Team' : 'Solo Players'}
-                                </div>
-                              </div>
-                              <div className="text-center">
-                                <div className="text-gray-500">Status</div>
-                                <div className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-medium ${lobby.lobbyStatus === 'ongoing' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                                  }`}>
-                                  {lobby.lobbyStatus || 'Upcoming'}
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Additional Features */}
-                            <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
-                              <div className="text-center">
-                                <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg ${lobby.goalkeeper ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                                  }`}>
-                                  <span className="text-xs">GK:</span>
-                                  <span className="font-medium">{lobby.goalkeeper ? 'Yes' : 'No'}</span>
-                                </div>
-                              </div>
-                              <div className="text-center">
-                                <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg ${lobby.referee ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                                  }`}>
-                                  <span className="text-xs">Referee:</span>
-                                  <span className="font-medium">{lobby.referee ? 'Yes' : 'No'}</span>
-                                </div>
-                              </div>
-                              <div className="text-center">
-                                <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg ${lobby.camera ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                                  }`}>
-                                  <span className="text-xs">Camera:</span>
-                                  <span className="font-medium">{lobby.camera ? 'Yes' : 'No'}</span>
-                                </div>
-                              </div>
-                              <div className="text-center">
-                                <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg ${lobby.matchPublished ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                                  }`}>
-                                  <span className="text-xs">Published:</span>
-                                  <span className="font-medium">{lobby.matchPublished ? 'Yes' : 'No'}</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Note */}
-                            {lobby.note && (
-                              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                                <p className="text-sm text-blue-800">{lobby.note}</p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-12 bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl">
-                    <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-full mb-4 shadow-sm">
-                      <Target className="w-8 h-8 text-gray-400" />
+                        );
+                      })}
                     </div>
-                    <p className="text-gray-600 text-lg">No upcoming lobbies</p>
-                    <p className="text-gray-400 text-sm mt-1">Assign new lobbies to this organizer</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Completed Lobbies */}
-              {lobbyData.completeLobby && lobbyData.completeLobby.length > 0 && (
+                  ) : (
+                    <div className="text-center py-12 bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl">
+                      <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-full mb-4 shadow-sm">
+                        <Clock3 className="w-8 h-8 text-gray-400" />
+                      </div>
+                      <p className="text-gray-600 text-lg">No upcoming lobbies</p>
+                      <p className="text-gray-400 text-sm mt-1">Assign new lobbies to this organizer</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
                 <div>
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-xl font-bold text-gray-900">Completed Lobbies</h3>
-                    <span className="text-sm text-gray-500">{lobbyData.completeLobby.length} matches</span>
-                  </div>
-                  <div className="space-y-3">
-                    {lobbyData.completeLobby.map((lobby) => {
-                      const teamDetails = getTeamDetails(lobby);
-                      return (
-                        <div key={lobby._id} className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl hover:bg-gray-100 transition-all duration-200">
-                          <div className="flex items-center gap-4">
-                            <div className="text-sm text-gray-500 min-w-[120px]">{formatDate(lobby.date)}</div>
-                            <div className="flex items-center gap-3">
-                              <span className="font-medium text-gray-900">{teamDetails.team1Name}</span>
-                              <span className="text-gray-400">vs</span>
-                              <span className="font-medium text-gray-900">{teamDetails.team2Name}</span>
+                  {/* Completed Lobbies */}
+                  {lobbyData.completeLobby && lobbyData.completeLobby.length > 0 ? (
+                    <div className="space-y-4">
+                      {lobbyData.completeLobby.map((lobby) => {
+                        const teamDetails = getTeamDetails(lobby);
+                        const totalPlayers = calculateTotalPlayers(lobby);
+
+                        return (
+                          <div key={lobby._id} className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-2xl border border-gray-200 hover:border-orange-300 transition-all duration-200 shadow-sm hover:shadow-md">
+                            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-3">
+                                  <h4 className="text-lg font-bold text-gray-900">{lobby.title}</h4>
+                                  <div className="flex items-center gap-2">
+                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-medium ${getLobbyTypeColor(lobby.matchType)}`}>
+                                      {lobby.matchType === 'teams' ? 'Team Match' : 'Solo Match'}
+                                    </span>
+                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-medium ${getPrivacyColor(lobby.matchPrivacy)}`}>
+                                      {lobby.matchPrivacy}
+                                    </span>
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
+                                      Completed
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                                  <div className="flex items-center gap-2">
+                                    <MapPin className="w-4 h-4 text-gray-400" />
+                                    <span className="text-gray-700">{lobby.location?.address}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Clock className="w-4 h-4 text-gray-400" />
+                                    <span className="text-gray-700">{lobby.time}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Calendar className="w-4 h-4 text-gray-400" />
+                                    <span className="text-gray-700">{formatDate(lobby.date)}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Users className="w-4 h-4 text-gray-400" />
+                                    <span className="text-gray-700">{lobby.teamSize}v{lobby.teamSize}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="text-right">
+                                <div className="text-2xl font-bold text-orange-600">AED {lobby.price}</div>
+                                <div className="text-sm text-gray-500">per player</div>
+                              </div>
                             </div>
-                            <div className="text-sm text-gray-600">{lobby.location?.address}</div>
+
+                            {/* Teams Display with Results */}
+                            <div className="mt-6">
+                              <div className="flex items-center justify-center gap-6">
+                                {/* Team 1 */}
+                                <div className="flex-1 text-center">
+                                  {teamDetails.isTeams ? (
+                                    <div className="flex flex-col items-center">
+                                      {teamDetails.team1Image && (
+                                        <img
+                                          src={teamDetails.team1Image}
+                                          alt={teamDetails.team1Name}
+                                          className="w-16 h-16 rounded-xl object-cover border-2 border-blue-200 mb-2 shadow-sm"
+                                          onError={(e) => {
+                                            e.target.src = '/default-team.png';
+                                          }}
+                                        />
+                                      )}
+                                      <span className="font-semibold text-gray-900">{teamDetails.team1Name}</span>
+                                      <div className={`mt-2 px-3 py-1 rounded-lg text-sm font-medium ${getResultColor(lobby.goalTeam1, lobby.goalTeam2, 1)}`}>
+                                        {lobby.goalTeam1}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-xl">
+                                      <span className="font-bold text-gray-900 text-lg">{teamDetails.team1Name}</span>
+                                      <div className={`mt-2 px-3 py-1 rounded-lg text-sm font-medium ${getResultColor(lobby.goalTeam1, lobby.goalTeam2, 1)}`}>
+                                        {lobby.goalTeam1}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* VS */}
+                                <div className="px-4">
+                                  <div className="text-gray-400 font-bold text-xl">VS</div>
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    {formatDateTime(lobby.date, lobby.time)}
+                                  </div>
+                                </div>
+
+                                {/* Team 2 */}
+                                <div className="flex-1 text-center">
+                                  {teamDetails.isTeams ? (
+                                    <div className="flex flex-col items-center">
+                                      {teamDetails.team2Image && (
+                                        <img
+                                          src={teamDetails.team2Image}
+                                          alt={teamDetails.team2Name}
+                                          className="w-16 h-16 rounded-xl object-cover border-2 border-red-200 mb-2 shadow-sm"
+                                          onError={(e) => {
+                                            e.target.src = '/default-team.png';
+                                          }}
+                                        />
+                                      )}
+                                      <span className="font-semibold text-gray-900">{teamDetails.team2Name}</span>
+                                      <div className={`mt-2 px-3 py-1 rounded-lg text-sm font-medium ${getResultColor(lobby.goalTeam1, lobby.goalTeam2, 2)}`}>
+                                        {lobby.goalTeam2}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="bg-gradient-to-r from-red-50 to-red-100 p-4 rounded-xl">
+                                      <span className="font-bold text-gray-900 text-lg">{teamDetails.team2Name}</span>
+                                      <div className={`mt-2 px-3 py-1 rounded-lg text-sm font-medium ${getResultColor(lobby.goalTeam1, lobby.goalTeam2, 2)}`}>
+                                        {lobby.goalTeam2}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Match Result */}
+                            <div className="mt-6 pt-6 border-t border-gray-100">
+                              <div className="flex items-center justify-center">
+                                <div className={`px-4 py-2 rounded-lg text-lg font-bold ${lobby.goalTeam1 > lobby.goalTeam2
+                                    ? 'bg-green-100 text-green-800'
+                                    : lobby.goalTeam1 < lobby.goalTeam2
+                                      ? 'bg-red-100 text-red-800'
+                                      : 'bg-yellow-100 text-yellow-800'
+                                  }`}>
+                                  {lobby.goalTeam1 > lobby.goalTeam2
+                                    ? `${teamDetails.team1Name} Wins!`
+                                    : lobby.goalTeam1 < lobby.goalTeam2
+                                      ? `${teamDetails.team2Name} Wins!`
+                                      : 'Match Drawn'}
+                                </div>
+                              </div>
+
+                              {/* Additional Info */}
+                              <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                <div className="text-center">
+                                  <div className="text-gray-500">Duration</div>
+                                  <div className="font-medium text-gray-900">{lobby.matchTime}</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-gray-500">Total Players</div>
+                                  <div className="font-medium text-gray-900">{totalPlayers}</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-gray-500">Format</div>
+                                  <div className="font-medium text-gray-900">
+                                    {lobby.matchType === 'teams' ? 'Team vs Team' : 'Solo Players'}
+                                  </div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-gray-500">Earnings</div>
+                                  <div className="font-medium text-green-700">AED {lobby.price * totalPlayers}</div>
+                                </div>
+                              </div>
+                            </div>
                           </div>
-                          <div className={`px-3 py-1.5 rounded-lg text-sm font-medium ${lobby.goalTeam1 > lobby.goalTeam2
-                              ? 'bg-green-100 text-green-800'
-                              : lobby.goalTeam1 < lobby.goalTeam2
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-yellow-100 text-yellow-800'
-                            }`}>
-                            {lobby.goalTeam1} - {lobby.goalTeam2}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl">
+                      <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-full mb-4 shadow-sm">
+                        <CheckCircle2 className="w-8 h-8 text-gray-400" />
+                      </div>
+                      <p className="text-gray-600 text-lg">No completed lobbies</p>
+                      <p className="text-gray-400 text-sm mt-1">This organizer hasn't completed any lobbies yet</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
