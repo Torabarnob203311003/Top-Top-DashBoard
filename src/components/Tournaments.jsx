@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Search, Calendar, MapPin, Flag, DollarSign, Shield, ShieldOff, Plus, X } from 'lucide-react';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -31,6 +31,9 @@ function Tournaments() {
   const [locationSuggestions, setLocationSuggestions] = useState([]);
   const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
   const [creatingTournament, setCreatingTournament] = useState(false);
+
+  // Add a ref for the location input
+  const locationInputRef = useRef(null);
 
   // Fetch tournaments from API
   const fetchTournaments = async () => {
@@ -113,7 +116,7 @@ function Tournaments() {
     }
   };
 
-  // Handle location search
+  // Handle location search - FIXED
   const handleLocationSearch = async (query) => {
     setLocationSearch(query);
 
@@ -148,11 +151,16 @@ function Tournaments() {
     }
   };
 
-  // Handle location selection
-  const handleLocationSelect = async (placeId) => {
+  // Handle location selection - FIXED VERSION
+  const handleLocationSelect = async (suggestion) => {
     try {
+      // First, set the display text immediately
+      const displayText = suggestion.description || suggestion.name || "Selected Location";
+      setLocationSearch(displayText);
+
+      // Then fetch the details
       const response = await fetch(
-        `https://api.toptopfootball.com/api/place-details?place_id=${placeId}`
+        `https://api.toptopfootball.com/api/place-details?place_id=${suggestion.place_id}`
       );
 
       if (!response.ok) {
@@ -163,18 +171,21 @@ function Tournaments() {
 
       if (data) {
         const { lat, lng } = data;
-        const address = data.formatted_address || data.name || "Selected Location";
+        const address = data.formatted_address || data.name || displayText;
 
         setCreateFormData(prev => ({
           ...prev,
           location: {
             lat: parseFloat(lat),
             lng: parseFloat(lng),
-            address
+            address: address
           }
         }));
-        setLocationSearch(address);
+
+        // Hide suggestions after selection
         setShowLocationSuggestions(false);
+
+        toast.success('Location selected successfully');
       }
     } catch (error) {
       console.error('Error fetching place details:', error);
@@ -199,8 +210,7 @@ function Tournaments() {
     }
   };
 
-  // Create tournament - Updated according to schema requirements
-  // Update the handleCreateTournament function - FIXED VERSION
+  // Create tournament - FIXED
   const handleCreateTournament = async () => {
     // Validate required fields according to schema
     if (!createFormData.name.trim()) {
@@ -266,12 +276,6 @@ function Tournaments() {
       // Append image file with key 'images' (not 'image')
       formData.append('images', tournamentImage);
 
-      // Log FormData contents for debugging
-      console.log('FormData entries:');
-      for (let [key, value] of formData.entries()) {
-        console.log(key, value);
-      }
-
       // Get authorization token if available
       const token = localStorage.getItem('accessToken');
       console.log('Authorization token available:', !!token);
@@ -281,12 +285,11 @@ function Tournaments() {
       if (token) {
         headers['Authorization'] = token;
       }
-      // DO NOT set Content-Type for FormData - browser will set it automatically
 
       // Send request to create tournament
       const response = await fetch('https://api.toptopfootball.com/api/v1/tournament/create-tournament', {
         method: 'POST',
-        headers: headers, // Only authorization header, no Content-Type
+        headers: headers,
         body: formData,
       });
 
@@ -323,6 +326,7 @@ function Tournaments() {
       setCreatingTournament(false);
     }
   };
+
   // Reset create form
   const resetCreateForm = () => {
     setCreateFormData({
@@ -342,6 +346,7 @@ function Tournaments() {
     setTournamentImage(null);
     setLocationSearch("");
     setLocationSuggestions([]);
+    setShowLocationSuggestions(false);
   };
 
   // Format date
@@ -378,6 +383,20 @@ function Tournaments() {
 
   useEffect(() => {
     fetchTournaments();
+  }, []);
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (locationInputRef.current && !locationInputRef.current.contains(event.target)) {
+        setShowLocationSuggestions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
 
   if (loading) {
@@ -515,7 +534,7 @@ function Tournaments() {
         )}
       </div>
 
-      {/* Create Tournament Modal - Updated according to schema */}
+      {/* Create Tournament Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -584,8 +603,8 @@ function Tournaments() {
                 />
               </div>
 
-              {/* Location (Required in schema) */}
-              <div>
+              {/* Location (Fixed Section) */}
+              <div ref={locationInputRef}>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Location *
                 </label>
@@ -594,38 +613,60 @@ function Tournaments() {
                     type="text"
                     value={locationSearch}
                     onChange={(e) => handleLocationSearch(e.target.value)}
-                    onFocus={() => locationSearch.length >= 3 && setShowLocationSuggestions(true)}
-                    onBlur={() => setTimeout(() => setShowLocationSuggestions(false), 200)}
+                    onFocus={() => {
+                      if (locationSearch.length >= 3 && locationSuggestions.length > 0) {
+                        setShowLocationSuggestions(true);
+                      }
+                    }}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    placeholder="Search location..."
+                    placeholder="Search location (minimum 3 characters)..."
                     disabled={creatingTournament}
                   />
                   <MapPin className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
 
-                  {/* Location Suggestions */}
+                  {/* Location Suggestions - FIXED */}
                   {showLocationSuggestions && locationSuggestions.length > 0 && (
                     <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                       {locationSuggestions.map((suggestion) => (
-                        <div
+                        <button
                           key={suggestion.place_id}
-                          className="p-3 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => handleLocationSelect(suggestion.place_id)}
+                          type="button"
+                          className="w-full text-left p-3 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
+                          onClick={() => handleLocationSelect(suggestion)}
+                          onMouseDown={(e) => e.preventDefault()} // Prevent blur
                         >
                           <div className="text-sm text-gray-700">
                             {suggestion.description || suggestion.name || 'Location'}
                           </div>
-                        </div>
+                        </button>
                       ))}
                     </div>
                   )}
                 </div>
+
+                {/* Selected Location Display - FIXED */}
                 {createFormData.location.lat !== 0 && createFormData.location.lng !== 0 && (
-                  <div className="mt-2 text-sm text-gray-600">
-                    Selected: {createFormData.location.address}
-                    (Lat: {createFormData.location.lat.toFixed(6)}, Lng: {createFormData.location.lng.toFixed(6)})
+                  <div className="mt-2 p-2 bg-gray-50 rounded-lg">
+                    <div className="text-sm font-medium text-gray-700">
+                      ✅ Selected Location:
+                    </div>
+                    <div className="text-sm text-gray-600 mt-1">
+                      {createFormData.location.address}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      Coordinates: {createFormData.location.lat.toFixed(6)}, {createFormData.location.lng.toFixed(6)}
+                    </div>
                   </div>
                 )}
+
+                {/* Location Required Warning */}
+                {(!createFormData.location.address.trim() ||
+                  createFormData.location.lat === 0 ||
+                  createFormData.location.lng === 0) && (
+                    <p className="mt-1 text-sm text-red-600">
+                      Please select a valid location from the search results
+                    </p>
+                  )}
               </div>
 
               {/* Start Date and Duration (Both Required) */}
