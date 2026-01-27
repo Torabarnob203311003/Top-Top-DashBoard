@@ -58,7 +58,7 @@ const getVideoEmbedUrl = (url) => {
   return url;
 };
 
-// Modal Component
+// Modal Component - UPDATED WITH SCROLL FIX
 function AddGoalModal({ isOpen, onClose, onGoalAdded }) {
   const [loading, setLoading] = useState(false);
 
@@ -82,6 +82,20 @@ function AddGoalModal({ isOpen, onClose, onGoalAdded }) {
     (isYouTubeLink(watchGoalLink) ? 'youtube' :
       isVimeoLink(watchGoalLink) ? 'vimeo' :
         isDirectVideoLink(watchGoalLink) ? 'direct' : 'unknown') : 'none';
+
+  useEffect(() => {
+    // Prevent body scroll when modal is open
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'auto';
+    }
+
+    // Cleanup
+    return () => {
+      document.body.style.overflow = 'auto';
+    };
+  }, [isOpen]);
 
   const onSubmit = async (data) => {
     setLoading(true);
@@ -134,9 +148,9 @@ function AddGoalModal({ isOpen, onClose, onGoalAdded }) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto"> {/* ADDED max-height and overflow */}
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+        <div className="flex items-center justify-between p-6 border-b border-gray-100 sticky top-0 bg-white z-10"> {/* ADDED sticky header */}
           <h2 className="text-xl font-bold text-gray-900">Add Goal of the Week</h2>
           <button
             onClick={handleClose}
@@ -307,7 +321,7 @@ function AddGoalModal({ isOpen, onClose, onGoalAdded }) {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-3 pt-4">
+          <div className="flex gap-3 pt-4 pb-6 sticky bottom-0 bg-white z-10"> {/* ADDED sticky footer */}
             <button
               type="button"
               onClick={handleClose}
