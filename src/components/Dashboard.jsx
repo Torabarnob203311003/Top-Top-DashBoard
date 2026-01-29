@@ -444,7 +444,7 @@ const Dashboard = () => {
           </div>
 
           {/* Traffic by Location */}
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+          <div className="bg-white rounded-xl p-6 shadow-sm border h-[600px] overflow-y-auto border-gray-100">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center space-x-3">
                 <div className="p-2 bg-indigo-50 rounded-lg">

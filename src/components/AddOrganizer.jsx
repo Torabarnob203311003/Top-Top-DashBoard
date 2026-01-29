@@ -12,8 +12,63 @@ function AddOrganizer({ onClose, onOrganizerAdded }) {
     register,
     handleSubmit,
     formState: { errors },
-    reset
+    reset,
+    watch
   } = useForm();
+
+  const selectedNationality = watch('nationality');
+
+  // All countries list (comprehensive)
+  const countryList = [
+    // Arab Countries
+    'United Arab Emirates', 'Saudi Arabia', 'Qatar', 'Kuwait', 'Oman', 'Bahrain',
+    'Egypt', 'Jordan', 'Lebanon', 'Syria', 'Yemen', 'Iraq',
+
+    // South Asian Countries
+    'India', 'Pakistan', 'Bangladesh', 'Sri Lanka', 'Nepal', 'Bhutan', 'Maldives',
+    'Afghanistan',
+
+    // Southeast Asian Countries
+    'Philippines', 'Indonesia', 'Malaysia', 'Thailand', 'Vietnam', 'Singapore',
+    'Myanmar (Burma)', 'Cambodia', 'Laos', 'Brunei', 'Timor-Leste',
+
+    // East Asian Countries
+    'China', 'Japan', 'South Korea', 'North Korea', 'Taiwan', 'Hong Kong', 'Macau',
+    'Mongolia',
+
+    // Central Asian Countries
+    'Kazakhstan', 'Uzbekistan', 'Turkmenistan', 'Kyrgyzstan', 'Tajikistan',
+
+    // Middle Eastern Countries
+    'Iran', 'Turkey', 'Israel', 'Palestine', 'Cyprus',
+
+    // African Countries
+    'South Africa', 'Nigeria', 'Kenya', 'Ethiopia', 'Ghana', 'Tanzania', 'Uganda',
+    'Morocco', 'Algeria', 'Tunisia', 'Libya', 'Sudan', 'Somalia', 'Senegal',
+    'Mali', 'Niger', 'Chad', 'Cameroon', 'Congo', 'Zambia', 'Zimbabwe',
+    'Madagascar', 'Mauritius', 'Seychelles',
+
+    // European Countries
+    'United Kingdom', 'Germany', 'France', 'Italy', 'Spain', 'Portugal',
+    'Netherlands', 'Belgium', 'Switzerland', 'Austria', 'Sweden', 'Norway',
+    'Denmark', 'Finland', 'Ireland', 'Poland', 'Czech Republic', 'Slovakia',
+    'Hungary', 'Romania', 'Bulgaria', 'Greece', 'Russia', 'Ukraine', 'Belarus',
+    'Croatia', 'Serbia', 'Slovenia', 'Estonia', 'Latvia', 'Lithuania',
+
+    // North American Countries
+    'United States', 'Canada', 'Mexico', 'Cuba', 'Jamaica', 'Haiti',
+    'Dominican Republic', 'Puerto Rico',
+
+    // South American Countries
+    'Brazil', 'Argentina', 'Chile', 'Colombia', 'Peru', 'Venezuela', 'Ecuador',
+    'Bolivia', 'Paraguay', 'Uruguay',
+
+    // Oceania Countries
+    'Australia', 'New Zealand', 'Fiji', 'Papua New Guinea', 'Solomon Islands',
+
+    // Others
+    'Other'
+  ];
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -55,6 +110,7 @@ function AddOrganizer({ onClose, onOrganizerAdded }) {
       formData.append('userName', data.userName);
       formData.append('email', data.email);
       formData.append('password', data.password);
+      formData.append('nationality', data.nationality); // Add nationality
       formData.append('role', 'organizer');
 
       // Append image if selected
@@ -229,6 +285,52 @@ function AddOrganizer({ onClose, onOrganizerAdded }) {
           )}
         </div>
 
+        {/* Nationality - Required Field */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Nationality *
+            <span className="text-red-500 ml-1">*</span>
+          </label>
+          <div className="relative">
+            <select
+              {...register("nationality", {
+                required: "Nationality is required"
+              })}
+              className={`w-full p-3 bg-white border rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent appearance-none ${errors.nationality ? 'border-red-500' : 'border-gray-200'
+                }`}
+              value={selectedNationality || ''}
+            >
+              <option value="" disabled>Select Nationality</option>
+              {countryList.map((country, index) => (
+                <option key={index} value={country}>
+                  {country}
+                </option>
+              ))}
+            </select>
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+              <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+              </svg>
+            </div>
+            <div className="absolute left-3 top-3">
+              {/* <Globe className="w-5 h-5 text-gray-400" /> */}
+            </div>
+          </div>
+          {errors.nationality && (
+            <p className="text-red-500 text-sm mt-1">{errors.nationality.message}</p>
+          )}
+
+          {/* Selected nationality display */}
+          {selectedNationality && (
+            <div className="mt-2 flex items-center gap-2">
+              <div className="w-6 h-4 bg-gradient-to-r from-blue-500 to-green-500 rounded-sm"></div>
+              <span className="text-sm text-gray-600">
+                Selected: <span className="font-medium text-gray-800">{selectedNationality}</span>
+              </span>
+            </div>
+          )}
+        </div>
+
         {/* Organizer Photo */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -279,6 +381,21 @@ function AddOrganizer({ onClose, onOrganizerAdded }) {
               </label>
             </div>
           )}
+        </div>
+
+        {/* Form Validation Summary */}
+        <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+              <span className="text-green-600 font-bold">!</span>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-700">Required Fields</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Fields marked with * are required. Nationality is mandatory for organizer registration.
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Submit Button */}
