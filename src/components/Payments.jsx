@@ -1204,7 +1204,7 @@ const Payments = () => {
   return (
     <div className="bg-gray-50 min-h-screen">
       {/* Header */}
-      <div className="bg-white px-4 py-4 border-b">
+      <div className="bg-white  px-4 py-4 border-b">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-xl font-bold text-gray-900">Payments Dashboard</h1>
@@ -1263,7 +1263,7 @@ const Payments = () => {
         </div>
 
         {/* Summary Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+        <div className="grid hidden grid-cols-2 md:grid-cols-4 gap-4 mt-4">
           <div className="bg-white border border-gray-200 rounded-lg p-3">
             <div className="text-sm text-gray-600">Total Payments</div>
             <div className="text-xl font-bold text-gray-900">{transformedPayments.length}</div>
