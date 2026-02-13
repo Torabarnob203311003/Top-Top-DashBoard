@@ -14,17 +14,17 @@ function Tournaments() {
   // Create tournament form state - Updated according to schema
   const [createFormData, setCreateFormData] = useState({
     name: "",
-    type: "Standing",
+    type: "League",
     price: 0,
     location: {
       lat: 0,
       lng: 0,
-      address: ""
+      address: "",
     },
     startDate: "",
     duration: 1,
     fieldSize: 5,
-    maxTeam: 16
+    maxTeam: 16,
   });
   const [tournamentImage, setTournamentImage] = useState(null);
   const [locationSearch, setLocationSearch] = useState("");
@@ -331,17 +331,17 @@ function Tournaments() {
   const resetCreateForm = () => {
     setCreateFormData({
       name: "",
-      type: "Standing",
+      type: "League",
       price: 0,
       location: {
         lat: 0,
         lng: 0,
-        address: ""
+        address: "",
       },
       startDate: "",
       duration: 1,
       fieldSize: 5,
-      maxTeam: 16
+      maxTeam: 16,
     });
     setTournamentImage(null);
     setLocationSearch("");
@@ -581,8 +581,9 @@ function Tournaments() {
                   className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   disabled={creatingTournament}
                 >
-                  <option value="Standing">Standing</option>
+                  <option value="League">League</option>
                   <option value="Knockout">Knockout</option>
+                   <option value="Both">Both</option>
                 </select>
               </div>
 
