@@ -1,6 +1,6 @@
 /* eslint-disable no-useless-escape */
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, Play, Plus, X, Calendar, Link, Trash2 } from 'lucide-react';
+import { ChevronDown, Play, Plus, X, Calendar, Link, Trash2, Search, User } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend } from 'recharts';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
@@ -58,16 +58,189 @@ const getVideoEmbedUrl = (url) => {
   return url;
 };
 
-// Modal Component - UPDATED WITH SCROLL FIX
+// Player Search Component
+function PlayerSearch({ onSelectPlayer, selectedPlayer }) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [players, setPlayers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+
+  const fetchPlayers = async (search) => {
+    if (search.length < 2) {
+      setPlayers([]);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`https://api.toptopfootball.com/api/v1/auth/all-player`, {
+        headers: {
+          'Authorization': `${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch players');
+      }
+
+      const result = await response.json();
+
+      // Filter only players and then filter by search term
+      const filteredPlayers = result.data
+        .filter(user => user.role === 'player')
+        .filter(player =>
+          player.FullName?.toLowerCase().includes(search.toLowerCase()) ||
+          player.userName?.toLowerCase().includes(search.toLowerCase()) ||
+          player.email?.toLowerCase().includes(search.toLowerCase())
+        )
+        .slice(0, 10); // Limit to 10 results
+
+      setPlayers(filteredPlayers);
+    } catch (error) {
+      console.error('Error fetching players:', error);
+      toast.error('Failed to search players');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      fetchPlayers(searchTerm);
+    }, 300);
+
+    return () => clearTimeout(debounceTimer);
+  }, [searchTerm]);
+
+  const handleSelectPlayer = (player) => {
+    onSelectPlayer(player);
+    setSearchTerm(player.FullName || player.userName);
+    setShowDropdown(false);
+  };
+
+  const handleRemovePlayer = () => {
+    onSelectPlayer(null);
+    setSearchTerm('');
+  };
+
+  return (
+    <div className="relative">
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        Goal By (Player) *
+      </label>
+
+      {selectedPlayer ? (
+        <div className="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+          <div className="flex items-center gap-3">
+            {selectedPlayer.imageUrl ? (
+              <img
+                src={selectedPlayer.imageUrl}
+                alt={selectedPlayer.FullName}
+                className="w-10 h-10 rounded-full object-cover"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = 'https://via.placeholder.com/40';
+                }}
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                <User className="w-5 h-5 text-emerald-600" />
+              </div>
+            )}
+            <div>
+              <p className="font-medium text-gray-900">{selectedPlayer.FullName}</p>
+              <p className="text-xs text-gray-500">@{selectedPlayer.userName || 'N/A'}</p>
+            </div>
+          </div>
+          <button
+            onClick={handleRemovePlayer}
+            className="p-1 hover:bg-emerald-200 rounded-full transition-colors"
+          >
+            <X className="w-4 h-4 text-emerald-700" />
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="w-4 h-4 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              placeholder="Search player by name, username or email..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setShowDropdown(true);
+              }}
+              onFocus={() => setShowDropdown(true)}
+              className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all hover:border-gray-300"
+            />
+            {loading && (
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-emerald-500"></div>
+              </div>
+            )}
+          </div>
+
+          {showDropdown && players.length > 0 && (
+            <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+              {players.map((player) => (
+                <button
+                  key={player._id}
+                  onClick={() => handleSelectPlayer(player)}
+                  className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0"
+                >
+                  {player.imageUrl ? (
+                    <img
+                      src={player.imageUrl}
+                      alt={player.FullName}
+                      className="w-8 h-8 rounded-full object-cover"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = 'https://via.placeholder.com/32';
+                      }}
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+                      <User className="w-4 h-4 text-gray-500" />
+                    </div>
+                  )}
+                  <div className="flex-1 text-left">
+                    <p className="text-sm font-medium text-gray-900">{player.FullName}</p>
+                    <p className="text-xs text-gray-500">
+                      @{player.userName || 'N/A'} • {player.position?.slice(0, 2).join(', ') || 'No position'}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {showDropdown && searchTerm.length >= 2 && players.length === 0 && !loading && (
+            <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg p-4 text-center">
+              <p className="text-sm text-gray-500">No players found</p>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// Modal Component - UPDATED WITH GOAL BY FIELD
 function AddGoalModal({ isOpen, onClose, onGoalAdded }) {
   const [loading, setLoading] = useState(false);
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
     reset,
-    watch
+    watch,
+    
   } = useForm({
     defaultValues: {
       goalTitle: '',
@@ -98,12 +271,23 @@ function AddGoalModal({ isOpen, onClose, onGoalAdded }) {
   }, [isOpen]);
 
   const onSubmit = async (data) => {
+    if (!selectedPlayer) {
+      toast.error('Please select a player');
+      return;
+    }
+
     setLoading(true);
 
     try {
       const goalData = {
         goalTitle: data.goalTitle,
         goalLink: data.goalLink,
+        goalBy: selectedPlayer._id, // Add player ID here
+        goalByDetails: {
+          fullName: selectedPlayer.FullName,
+          userName: selectedPlayer.userName,
+          imageUrl: selectedPlayer.imageUrl
+        },
         scheduledDate: data.scheduledDate ? new Date(data.scheduledDate).toISOString() : null,
         status: data.status,
         isScheduled: data.scheduledDate ? true : false,
@@ -129,6 +313,7 @@ function AddGoalModal({ isOpen, onClose, onGoalAdded }) {
 
       toast.success('Goal added successfully!');
       reset();
+      setSelectedPlayer(null);
       onGoalAdded(result.data);
       onClose();
     } catch (error) {
@@ -141,6 +326,7 @@ function AddGoalModal({ isOpen, onClose, onGoalAdded }) {
 
   const handleClose = () => {
     reset();
+    setSelectedPlayer(null);
     onClose();
   };
 
@@ -148,9 +334,9 @@ function AddGoalModal({ isOpen, onClose, onGoalAdded }) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto"> {/* ADDED max-height and overflow */}
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-100 sticky top-0 bg-white z-10"> {/* ADDED sticky header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-100 sticky top-0 bg-white z-10">
           <h2 className="text-xl font-bold text-gray-900">Add Goal of the Week</h2>
           <button
             onClick={handleClose}
@@ -162,6 +348,12 @@ function AddGoalModal({ isOpen, onClose, onGoalAdded }) {
 
         {/* Form */}
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
+          {/* Goal By - Player Selection */}
+          <PlayerSearch
+            onSelectPlayer={setSelectedPlayer}
+            selectedPlayer={selectedPlayer}
+          />
+
           {/* Goal Title */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -321,7 +513,7 @@ function AddGoalModal({ isOpen, onClose, onGoalAdded }) {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-3 pt-4 pb-6 sticky bottom-0 bg-white z-10"> {/* ADDED sticky footer */}
+          <div className="flex gap-3 pt-4 pb-6 sticky bottom-0 bg-white z-10">
             <button
               type="button"
               onClick={handleClose}
@@ -433,9 +625,6 @@ function Insights() {
   const [apiError, setApiError] = useState(null);
 
   // Existing states
-  // const [revenueType, setRevenueType] = useState('Select Type');
-  // const [revenueTimeframe, setRevenueTimeframe] = useState('Today');
-  // const [matchesTimeframe, setMatchesTimeframe] = useState('Today');
   const [playingVideo, setPlayingVideo] = useState(null);
   const [isAddGoalModalOpen, setIsAddGoalModalOpen] = useState(false);
   const [goalVideos, setGoalVideos] = useState([]);
@@ -762,7 +951,32 @@ function Insights() {
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
-                <h3 className="mt-4 text-sm font-semibold text-gray-800 truncate">
+
+                {/* Player Info */}
+                {video.goalByDetails && (
+                  <div className="mt-3 flex items-center gap-2">
+                    {video.goalByDetails.imageUrl ? (
+                      <img
+                        src={video.goalByDetails.imageUrl}
+                        alt={video.goalByDetails.fullName}
+                        className="w-6 h-6 rounded-full object-cover"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = 'https://via.placeholder.com/24';
+                        }}
+                      />
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center">
+                        <User className="w-3 h-3 text-gray-500" />
+                      </div>
+                    )}
+                    <span className="text-xs font-medium text-gray-700">
+                      {video.goalByDetails.fullName}
+                    </span>
+                  </div>
+                )}
+
+                <h3 className="mt-2 text-sm font-semibold text-gray-800 truncate">
                   {formatGoalTitle(video)}
                 </h3>
                 <div className="mt-2 flex items-center gap-2">
@@ -788,16 +1002,7 @@ function Insights() {
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-xl font-semibold text-gray-900">Revenue Overview</h2>
           <div className="flex items-center gap-3">
-            {/* <CustomDropdown
-              value={revenueType}
-              setValue={setRevenueType}
-              options={['Select Type', 'Total Revenue', 'Average Revenue']}
-            />
-            <CustomDropdown
-              value={revenueTimeframe}
-              setValue={setRevenueTimeframe}
-              options={['Today', 'This Week', 'This Month']}
-            /> */}
+            {/* Custom dropdowns commented out as per original */}
           </div>
         </div>
 
@@ -871,11 +1076,6 @@ function Insights() {
               </div>
             </div>
           </div>
-          {/* <CustomDropdown
-            value={matchesTimeframe}
-            setValue={setMatchesTimeframe}
-            options={['Today', 'This Week', 'This Month']}
-          /> */}
         </div>
 
         {loading ? (
