@@ -25,6 +25,9 @@ import {
   Gamepad2,
   Crown,
   Target,
+  ChevronDown,
+  ChevronUp,
+  FolderOpen,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -37,7 +40,7 @@ const Payments = () => {
     paymentStatus: "all",
     matchType: "all",
     position: "all",
-    organizer: "all", // New organizer filter
+    organizer: "all",
   });
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -45,8 +48,14 @@ const Payments = () => {
   const [refundLoading, setRefundLoading] = useState(false);
   const [showPrivateKey, setShowPrivateKey] = useState({});
   const [viewMode, setViewMode] = useState("cards");
-  const [organizers, setOrganizers] = useState([]); // New state for organizers
-  const [loadingOrganizers, setLoadingOrganizers] = useState(false); // Loading state for organizers
+  const [organizers, setOrganizers] = useState([]);
+  const [loadingOrganizers, setLoadingOrganizers] = useState(false);
+
+  // Group expansion state
+  const [expandedGroups, setExpandedGroups] = useState({});
+
+  // Loading states for payment actions
+  const [actionLoading, setActionLoading] = useState({});
 
   // Get token from localStorage
   const getToken = () => {
@@ -56,7 +65,7 @@ const Payments = () => {
   // Fetch payments data from API
   useEffect(() => {
     fetchPayments();
-    fetchOrganizers(); // Fetch organizers on component mount
+    fetchOrganizers();
   }, []);
 
   // Fetch refund requests when tab changes to Refund Requests
@@ -66,7 +75,7 @@ const Payments = () => {
     }
   }, [activeTab]);
 
-  // Fetch organizers from API (similar to Organizers component)
+  // Fetch organizers from API
   const fetchOrganizers = async () => {
     const token = getToken();
 
@@ -91,14 +100,13 @@ const Payments = () => {
         const errorData = await response.json().catch(() => null);
         throw new Error(
           errorData?.message ||
-            `Failed to fetch organizers (${response.status})`,
+          `Failed to fetch organizers (${response.status})`,
         );
       }
 
       const result = await response.json();
 
       if (result.success) {
-        // Filter only organizers from the response
         const organizersData =
           result.data?.filter((user) => user.role === "organizer") || [];
         setOrganizers(organizersData);
@@ -187,9 +195,10 @@ const Payments = () => {
     }
   };
 
-  // Update payment status function
-  const updatePaymentStatus = async (paymentId, newStatus) => {
+  // Update payment status function with loading state
+  const updatePaymentStatus = async (paymentId, newStatus, actionType) => {
     const token = getToken();
+    const actionKey = `${paymentId}_${actionType}`;
 
     if (!token) {
       toast.error("Please login to update payment status");
@@ -197,8 +206,14 @@ const Payments = () => {
     }
 
     try {
+      setActionLoading((prev) => ({ ...prev, [actionKey]: true }));
+
+      let response;
+      let result;
+
       if (newStatus === "success") {
-        const response = await fetch(
+        // pending → success
+        response = await fetch(
           `https://api.toptopfootball.com/api/v1/payment/payment-success?paymentId=${paymentId}`,
           {
             method: "GET",
@@ -208,17 +223,21 @@ const Payments = () => {
             },
           },
         );
-
-        const result = await response.json();
-
-        if (result.success) {
-          toast.success("Payment marked as successful");
-          fetchPayments();
-        } else {
-          toast.error(result.message || "Failed to update payment status");
-        }
+      } else if (newStatus === "paid") {
+        // success → paid
+        response = await fetch(
+          `https://api.toptopfootball.com/api/v1/payment/payment-paid?paymentId=${paymentId}`,
+          {
+            method: "PATCH",
+            headers: {
+              Authorization: `${token}`,
+              "Content-Type": "application/json",
+            },
+          },
+        );
       } else {
-        const response = await fetch(
+        // pending → failed
+        response = await fetch(
           `https://api.toptopfootball.com/api/v1/payment/payment-cancel?paymentId=${paymentId}`,
           {
             method: "GET",
@@ -228,25 +247,33 @@ const Payments = () => {
             },
           },
         );
+      }
 
-        const result = await response.json();
+      result = await response.json();
 
-        if (result.success) {
-          toast.success(`Payment marked as ${newStatus}`);
-          fetchPayments();
-        } else {
-          toast.error(result.message || "Failed to update payment status");
-        }
+      if (result.success) {
+        toast.success(
+          newStatus === "paid"
+            ? "Payment marked as paid successfully"
+            : `Payment marked as ${newStatus}`,
+          { duration: 3000 }
+        );
+        fetchPayments(); // Refresh the list
+      } else {
+        toast.error(result.message || "Failed to update payment status");
       }
     } catch (error) {
       console.error("Error updating payment status:", error);
       toast.error("Error updating payment status");
+    } finally {
+      setActionLoading((prev) => ({ ...prev, [actionKey]: false }));
     }
   };
 
-  // Handle refund approval
+  // Handle refund approval with loading state
   const handleApproveRefund = async (refundRequest) => {
     const token = getToken();
+    const actionKey = `refund_approve_${refundRequest._id}`;
 
     if (!token) {
       toast.error("Please login to process refund");
@@ -254,12 +281,13 @@ const Payments = () => {
     }
 
     try {
+      setActionLoading((prev) => ({ ...prev, [actionKey]: true }));
+
       const requestBody = {
         lobbyId: refundRequest.lobbyId?._id,
         playerId: refundRequest.playerId?._id,
       };
 
-      // Validate required fields
       if (!requestBody.lobbyId || !requestBody.playerId) {
         toast.error("Missing required data for refund approval");
         return;
@@ -281,7 +309,6 @@ const Payments = () => {
 
       if (result.success) {
         toast.success("Refund approved successfully");
-        // Refresh refund requests
         fetchRefundRequests();
       } else {
         toast.error(result.message || "Failed to approve refund");
@@ -289,12 +316,15 @@ const Payments = () => {
     } catch (error) {
       console.error("Error approving refund:", error);
       toast.error("Error approving refund");
+    } finally {
+      setActionLoading((prev) => ({ ...prev, [actionKey]: false }));
     }
   };
 
-  // Handle refund rejection
+  // Handle refund rejection with loading state
   const handleRejectRefund = async (refundRequest) => {
     const token = getToken();
+    const actionKey = `refund_reject_${refundRequest._id}`;
 
     if (!token) {
       toast.error("Please login to process refund");
@@ -302,12 +332,13 @@ const Payments = () => {
     }
 
     try {
+      setActionLoading((prev) => ({ ...prev, [actionKey]: true }));
+
       const requestBody = {
         lobbyId: refundRequest.lobbyId?._id,
         playerId: refundRequest.playerId?._id,
       };
 
-      // Validate required fields
       if (!requestBody.lobbyId || !requestBody.playerId) {
         toast.error("Missing required data for refund rejection");
         return;
@@ -329,7 +360,6 @@ const Payments = () => {
 
       if (result.success) {
         toast.success("Refund rejected successfully");
-        // Refresh refund requests
         fetchRefundRequests();
       } else {
         toast.error(result.message || "Failed to reject refund");
@@ -337,6 +367,8 @@ const Payments = () => {
     } catch (error) {
       console.error("Error rejecting refund:", error);
       toast.error("Error rejecting refund");
+    } finally {
+      setActionLoading((prev) => ({ ...prev, [actionKey]: false }));
     }
   };
 
@@ -348,10 +380,17 @@ const Payments = () => {
     }));
   };
 
+  // Toggle group expansion
+  const toggleGroupExpansion = (groupId) => {
+    setExpandedGroups((prev) => ({
+      ...prev,
+      [groupId]: !prev[groupId],
+    }));
+  };
+
   // Format date from API
   const formatMatchDate = (dateString) => {
     if (!dateString) return "N/A";
-
     try {
       const date = new Date(dateString);
       return date.toLocaleDateString("en-US", {
@@ -367,12 +406,10 @@ const Payments = () => {
   // Format time from API
   const formatMatchTime = (timeString) => {
     if (!timeString) return "N/A";
-
     try {
       if (timeString.includes("AM") || timeString.includes("PM")) {
         return timeString;
       }
-
       const [hours, minutes] = timeString.split(":");
       const hour = parseInt(hours);
       const ampm = hour >= 12 ? "PM" : "AM";
@@ -386,7 +423,6 @@ const Payments = () => {
   // Format tournament date
   const formatTournamentDate = (dateString) => {
     if (!dateString) return "N/A";
-
     try {
       const date = new Date(dateString);
       return date.toLocaleDateString("en-US", {
@@ -402,7 +438,6 @@ const Payments = () => {
   // Format payment creation date
   const formatPaymentDate = (dateString) => {
     if (!dateString) return "N/A";
-
     try {
       const date = new Date(dateString);
       return date.toLocaleDateString("en-US", {
@@ -496,7 +531,6 @@ const Payments = () => {
   // Get player stats for display
   const getPlayerStats = (player) => {
     if (!player) return null;
-
     return {
       matches: player.match || 0,
       rating: player.rating?.toFixed(1) || "0.0",
@@ -515,7 +549,6 @@ const Payments = () => {
       const player = payment.playerId;
       const team = payment.teamId;
 
-      // Common fields
       const baseData = {
         id: payment._id,
         rawPayment: payment,
@@ -530,12 +563,13 @@ const Payments = () => {
         guestPlayer: payment.guest_player || false,
         organizerName: getOrganizerName({ lobby, tournament }),
         organizerId: getOrganizerId({ lobby, tournament }),
+        groupId: lobby?._id || tournament?._id || payment._id,
+        groupName: lobby?.title || tournament?.name || "Unknown",
+        groupType: lobby ? "lobby" : tournament ? "tournament" : "unknown",
       };
 
-      // Team Fee Payment (Player payment for lobby)
       if (payment.paymentType === "team fee" && lobby) {
         const playerStats = getPlayerStats(player);
-
         return {
           ...baseData,
           type: "TEAM_FEE",
@@ -543,15 +577,15 @@ const Payments = () => {
           subtitle: lobby?.title || "Unknown Lobby",
           player: player
             ? {
-                id: player._id,
-                name: player.FullName || "Unknown Player",
-                userName: player.userName || "N/A",
-                email: player.email || "N/A",
-                nationality: player.nationality || "N/A",
-                age: player.age || "N/A",
-                avatar: getPlayerAvatar(player),
-                stats: playerStats,
-              }
+              id: player._id,
+              name: player.FullName || "Unknown Player",
+              userName: player.userName || "N/A",
+              email: player.email || "N/A",
+              nationality: player.nationality || "N/A",
+              age: player.age || "N/A",
+              avatar: getPlayerAvatar(player),
+              stats: playerStats,
+            }
             : null,
           lobby: {
             id: lobby?._id,
@@ -576,16 +610,15 @@ const Payments = () => {
           },
           team: team
             ? {
-                id: team._id,
-                name: getTeamName(team),
-                logo: getTeamLogo(team),
-              }
+              id: team._id,
+              name: getTeamName(team),
+              logo: getTeamLogo(team),
+            }
             : null,
           isTournament: false,
         };
       }
 
-      // Tournament Fee Payment (Team payment for tournament)
       if (payment.paymentType === "tournament fee" && tournament) {
         return {
           ...baseData,
@@ -594,15 +627,15 @@ const Payments = () => {
           subtitle: tournament?.name || "Unknown Tournament",
           team: team
             ? {
-                id: team._id,
-                name: getTeamName(team),
-                logo: getTeamLogo(team),
-                totalMatch: team?.totalMatch || 0,
-                win: team?.win || 0,
-                draw: team?.draw || 0,
-                loss: team?.loss || 0,
-                players: team?.players?.length || 0,
-              }
+              id: team._id,
+              name: getTeamName(team),
+              logo: getTeamLogo(team),
+              totalMatch: team?.totalMatch || 0,
+              win: team?.win || 0,
+              draw: team?.draw || 0,
+              loss: team?.loss || 0,
+              players: team?.players?.length || 0,
+            }
             : null,
           tournament: {
             id: tournament?._id,
@@ -623,7 +656,6 @@ const Payments = () => {
         };
       }
 
-      // Fallback for unknown payment types
       return {
         ...baseData,
         type: "UNKNOWN",
@@ -644,7 +676,6 @@ const Payments = () => {
       const player = refund.playerId;
       const team = refund.teamId;
 
-      // Base refund data
       const baseRefundData = {
         id: refund._id,
         rawData: refund,
@@ -658,7 +689,6 @@ const Payments = () => {
         organizerId: getOrganizerId({ lobby, tournament }),
       };
 
-      // Lobby refund
       if (lobby) {
         return {
           ...baseRefundData,
@@ -666,10 +696,10 @@ const Payments = () => {
           title: "Lobby Match Refund",
           player: player
             ? {
-                id: player._id,
-                name: player.FullName || "Unknown Player",
-                userName: player.userName || "N/A",
-              }
+              id: player._id,
+              name: player.FullName || "Unknown Player",
+              userName: player.userName || "N/A",
+            }
             : null,
           lobby: {
             id: lobby?._id,
@@ -683,15 +713,14 @@ const Payments = () => {
           },
           team: team
             ? {
-                id: team._id,
-                name: getTeamName(team),
-                logo: getTeamLogo(team),
-              }
+              id: team._id,
+              name: getTeamName(team),
+              logo: getTeamLogo(team),
+            }
             : null,
         };
       }
 
-      // Tournament refund
       if (tournament) {
         return {
           ...baseRefundData,
@@ -699,10 +728,10 @@ const Payments = () => {
           title: "Tournament Refund",
           team: team
             ? {
-                id: team._id,
-                name: getTeamName(team),
-                logo: getTeamLogo(team),
-              }
+              id: team._id,
+              name: getTeamName(team),
+              logo: getTeamLogo(team),
+            }
             : null,
           tournament: {
             id: tournament?._id,
@@ -715,7 +744,6 @@ const Payments = () => {
         };
       }
 
-      // Fallback
       return {
         ...baseRefundData,
         type: "UNKNOWN_REFUND",
@@ -728,7 +756,6 @@ const Payments = () => {
   const filteredPayments = useMemo(() => {
     let filtered = transformedPayments;
 
-    // Filter by payment type
     if (activeTab === "Team Fees") {
       filtered = filtered.filter((payment) => payment.type === "TEAM_FEE");
     } else if (activeTab === "Tournament Fees") {
@@ -739,7 +766,6 @@ const Payments = () => {
       return transformedRefundRequests;
     }
 
-    // Search filter
     if (searchTerm) {
       filtered = filtered.filter((item) => {
         const searchLower = searchTerm.toLowerCase();
@@ -750,12 +776,11 @@ const Payments = () => {
           item.lobby?.title?.toLowerCase().includes(searchLower) ||
           item.tournament?.name?.toLowerCase().includes(searchLower) ||
           item.title?.toLowerCase().includes(searchLower) ||
-          item.organizerName?.toLowerCase().includes(searchLower) // Search by organizer name
+          item.organizerName?.toLowerCase().includes(searchLower)
         );
       });
     }
 
-    // Additional filters
     if (activeTab !== "Refund Requests") {
       if (filters.paymentMethod !== "all") {
         filtered = filtered.filter(
@@ -781,11 +806,17 @@ const Payments = () => {
             filters.position.toLowerCase(),
         );
       }
-      // Organizer filter
       if (filters.organizer !== "all") {
-        filtered = filtered.filter(
-          (payment) => payment.organizerId === filters.organizer,
-        );
+        if (filters.organizer === "no_organizer") {
+          filtered = filtered.filter(
+            (payment) =>
+              !payment.organizerId || payment.organizerName === "No Organizer"
+          );
+        } else {
+          filtered = filtered.filter(
+            (payment) => payment.organizerId === filters.organizer,
+          );
+        }
       }
     }
 
@@ -798,6 +829,39 @@ const Payments = () => {
     filters,
   ]);
 
+  // Group payments by groupId
+  const groupedPayments = useMemo(() => {
+    if (activeTab === "Refund Requests") {
+      return {};
+    }
+
+    const groups = {};
+
+    filteredPayments.forEach((payment) => {
+      const groupId = payment.groupId;
+      if (!groups[groupId]) {
+        groups[groupId] = {
+          id: groupId,
+          name: payment.groupName,
+          type: payment.groupType,
+          payments: [],
+          totalAmount: 0,
+          paymentCount: 0,
+          statuses: new Set(),
+          methods: new Set(),
+        };
+      }
+
+      groups[groupId].payments.push(payment);
+      groups[groupId].totalAmount += payment.amount;
+      groups[groupId].paymentCount++;
+      groups[groupId].statuses.add(payment.status);
+      groups[groupId].methods.add(payment.method);
+    });
+
+    return groups;
+  }, [filteredPayments, activeTab]);
+
   // Get positions from team fee payments
   const availablePositions = useMemo(() => {
     const positions = new Set();
@@ -809,12 +873,17 @@ const Payments = () => {
     return Array.from(positions).sort();
   }, [transformedPayments]);
 
-  // Status badge component
+  // Status badge component - UPDATED to show "Approved" for success status
   const getStatusBadge = (status) => {
     const statusConfig = {
-      success: {
+      paid: {
         color: "bg-green-100 text-green-800",
         text: "Paid",
+        icon: CheckCircle,
+      },
+      success: {
+        color: "bg-blue-100 text-blue-800",
+        text: "Approved",
         icon: CheckCircle,
       },
       pending: {
@@ -828,7 +897,7 @@ const Payments = () => {
         icon: XCircle,
       },
       refund: {
-        color: "bg-blue-100 text-blue-800",
+        color: "bg-purple-100 text-purple-800",
         text: "Refunded",
         icon: DollarSign,
       },
@@ -901,296 +970,416 @@ const Payments = () => {
     );
   }
 
-  // Update the renderTeamFeeCard function to include organizer badge
-  const renderTeamFeeCard = (payment) => (
-    <div
-      key={payment.id}
-      className="bg-white rounded-xl border border-gray-200 p-4 mb-4 shadow-sm hover:shadow-md transition-shadow"
-    >
-      {/* Header */}
-      <div className="flex justify-between items-start mb-4">
-        <div className="flex items-center gap-2">
-          <div className="p-2 bg-blue-50 rounded-lg">
-            <Trophy className="w-5 h-5 text-blue-600" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-gray-900">{payment.title}</h3>
-            <p className="text-sm text-gray-600">{payment.subtitle}</p>
-          </div>
-        </div>
-        <div className="text-right">
-          <div className="text-lg font-bold text-green-600">
-            {payment.formattedAmount}
-          </div>
-          <div className="text-xs text-gray-500 mt-1">
-            {payment.paymentDate}
-          </div>
-        </div>
-      </div>
+  // Group Header Component
+  const GroupHeader = ({ group }) => {
+    const isExpanded = expandedGroups[group.id];
+    const statusCounts = {
+      paid: Array.from(group.statuses).filter(s => s === "paid").length,
+      success: Array.from(group.statuses).filter(s => s === "success").length,
+      pending: Array.from(group.statuses).filter(s => s === "pending").length,
+      failed: Array.from(group.statuses).filter(s => s === "failed").length,
+    };
 
-      {/* Payment Status & Details */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          {getStatusBadge(payment.status)}
-          <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs">
-            {payment.method.toUpperCase()}
-          </span>
-          {payment.guestPlayer && (
-            <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">
-              Guest Player
+    return (
+      <div
+        className="bg-white rounded-t-xl border border-gray-200 p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+        onClick={() => toggleGroupExpansion(group.id)}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3 flex-1">
+            <div className="p-2 bg-blue-50 rounded-lg">
+              <FolderOpen className="w-5 h-5 text-blue-600" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-gray-900">{group.name}</h3>
+              <div className="flex items-center gap-4 mt-1">
+                <span className="text-sm text-gray-600">
+                  {group.paymentCount} payment{group.paymentCount !== 1 ? 's' : ''}
+                </span>
+                <span className="text-sm font-medium text-green-600">
+                  Total: {group.totalAmount} AED
+                </span>
+                <div className="flex items-center gap-2">
+                  {statusCounts.paid > 0 && (
+                    <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
+                      {statusCounts.paid} Paid
+                    </span>
+                  )}
+                  {statusCounts.success > 0 && (
+                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+                      {statusCounts.success} Approved
+                    </span>
+                  )}
+                  {statusCounts.pending > 0 && (
+                    <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">
+                      {statusCounts.pending} Pending
+                    </span>
+                  )}
+                  {statusCounts.failed > 0 && (
+                    <span className="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full">
+                      {statusCounts.failed} Failed
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-500">
+              {group.type === "lobby" ? "🎮 Lobby" : "🏆 Tournament"}
             </span>
-          )}
-        </div>
-        <div className="text-sm text-gray-600">
-          Position:{" "}
-          <span className="font-medium">{payment.playerPosition}</span>
+            {isExpanded ? (
+              <ChevronUp className="w-5 h-5 text-gray-400" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-gray-400" />
+            )}
+          </div>
         </div>
       </div>
+    );
+  };
 
-      {/* Organizer Information */}
-      <div className="mb-3 flex items-center gap-2">
-        {getOrganizerBadge(payment.organizerName)}
-      </div>
+  // Render Team Fee Payment Card - UPDATED with new status flow
+  const renderTeamFeeCard = (payment) => {
+    const approveLoading = actionLoading[`${payment.rawPayment._id}_approve`];
+    const rejectLoading = actionLoading[`${payment.rawPayment._id}_reject`];
+    const paidLoading = actionLoading[`${payment.rawPayment._id}_paid`];
 
-      {/* Player Information */}
-      <div className="bg-blue-50 rounded-lg p-3 mb-3 border border-blue-100">
-        <div className="flex items-center justify-between mb-2">
-          <h4 className="font-medium text-gray-900 flex items-center gap-2">
+    return (
+      <div
+        key={payment.id}
+        className="bg-white rounded-xl border border-gray-200 p-4 mb-4 shadow-sm hover:shadow-md transition-shadow"
+      >
+        {/* Header */}
+        <div className="flex justify-between items-start mb-4">
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-blue-50 rounded-lg">
+              <Trophy className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900">{payment.title}</h3>
+              <p className="text-sm text-gray-600">{payment.subtitle}</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-lg font-bold text-green-600">
+              {payment.formattedAmount}
+            </div>
+            <div className="text-xs text-gray-500 mt-1">
+              {payment.paymentDate}
+            </div>
+          </div>
+        </div>
+
+        {/* Payment Status & Details */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            {getStatusBadge(payment.status)}
+            <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs">
+              {payment.method.toUpperCase()}
+            </span>
+            {payment.guestPlayer && (
+              <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">
+                Guest Player
+              </span>
+            )}
+          </div>
+          <div className="text-sm text-gray-600">
+            Position:{" "}
+            <span className="font-medium">{payment.playerPosition}</span>
+          </div>
+        </div>
+
+        {/* Organizer Information */}
+        <div className="mb-3 flex items-center gap-2">
+          {getOrganizerBadge(payment.organizerName)}
+        </div>
+
+        {/* Player Information */}
+        <div className="bg-blue-50 rounded-lg p-3 mb-3 border border-blue-100">
+          <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
             <User className="w-4 h-4" />
             Player Details
           </h4>
-          {payment.player?.stats && (
-            <div className="flex items-center gap-1 text-sm">
-              <Star className="w-4 h-4 text-yellow-500" />
-              <span className="font-medium">{payment.player.stats.rating}</span>
+          {payment.player ? (
+            <>
+              <div className="flex items-center gap-3">
+                {payment.player.avatar}
+                <div className="flex-1">
+                  <div className="font-medium text-gray-900">
+                    {payment.player.name}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    @{payment.player.userName}
+                  </div>
+                  <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                    <span>{payment.player.nationality}</span>
+                    <span>•</span>
+                    <span>Age: {payment.player.age}</span>
+                  </div>
+                </div>
+                {payment.player?.stats && (
+                  <div className="flex items-center gap-1 text-sm">
+                    <Star className="w-4 h-4 text-yellow-500" />
+                    <span className="font-medium">{payment.player.stats.rating}</span>
+                  </div>
+                )}
+              </div>
+              {payment.player.stats && (
+                <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-blue-200">
+                  <div className="text-center">
+                    <div className="text-sm font-medium text-gray-900">
+                      {payment.player.stats.matches}
+                    </div>
+                    <div className="text-xs text-gray-500">Matches</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-sm font-medium text-gray-900">
+                      {payment.player.stats.goals}
+                    </div>
+                    <div className="text-xs text-gray-500">Goals</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-sm font-medium text-gray-900">
+                      {payment.player.stats.assists}
+                    </div>
+                    <div className="text-xs text-gray-500">Assists</div>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-center py-2 text-gray-500">
+              No player information available
             </div>
           )}
         </div>
-        {payment.player ? (
-          <>
-            <div className="flex items-center gap-3">
-              {payment.player.avatar}
-              <div className="flex-1">
-                <div className="font-medium text-gray-900">
-                  {payment.player.name}
-                </div>
-                <div className="text-sm text-gray-600">
-                  @{payment.player.userName}
-                </div>
-                <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
-                  <span>{payment.player.nationality}</span>
-                  <span>•</span>
-                  <span>Age: {payment.player.age}</span>
-                </div>
-              </div>
-            </div>
-            {payment.player.stats && (
-              <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-blue-200">
-                <div className="text-center">
-                  <div className="text-sm font-medium text-gray-900">
-                    {payment.player.stats.matches}
-                  </div>
-                  <div className="text-xs text-gray-500">Matches</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-sm font-medium text-gray-900">
-                    {payment.player.stats.goals}
-                  </div>
-                  <div className="text-xs text-gray-500">Goals</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-sm font-medium text-gray-900">
-                    {payment.player.stats.assists}
-                  </div>
-                  <div className="text-xs text-gray-500">Assists</div>
-                </div>
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="text-center py-2 text-gray-500">
-            No player information available
-          </div>
-        )}
-      </div>
 
-      {/* Lobby Information */}
-      <div className="bg-green-50 rounded-lg p-3 mb-3 border border-green-100">
-        <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
-          <Gamepad2 className="w-4 h-4" />
-          Match Information
-        </h4>
-        <div className="grid grid-cols-2 gap-3 text-sm">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-gray-400" />
-              <span className="font-medium">Date:</span>
-              <span className="text-gray-700">
-                {payment.lobby?.date || "N/A"}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-gray-400" />
-              <span className="font-medium">Time:</span>
-              <span className="text-gray-700">
-                {payment.lobby?.time || "N/A"}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-gray-400" />
-              <span className="font-medium">Location:</span>
-              <span className="text-gray-700 truncate">
-                {payment.lobby?.location || "N/A"}
-              </span>
-            </div>
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-gray-400" />
-              <span className="font-medium">Format:</span>
-              <span className="text-gray-700">
-                {payment.lobby?.teamSize || "N/A"}v
-                {payment.lobby?.teamSize || "N/A"}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-green-500" />
-              <span className="font-medium">Duration:</span>
-              <span className="text-gray-700">
-                {payment.lobby?.matchTime || "N/A"}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Target className="w-4 h-4 text-gray-400" />
-              <span className="font-medium">Type:</span>
-              <span className="text-gray-700 capitalize">
-                {payment.lobby?.matchType || "N/A"}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Match Format */}
-        {payment.lobby?.matchFormat && payment.lobby.matchFormat !== "N/A" && (
-          <div className="mt-2 pt-2 border-t border-green-200">
-            <span className="text-sm font-medium text-gray-700">
-              Formation:{" "}
-            </span>
-            <span className="text-sm text-gray-900">
-              {payment.lobby.matchFormat}
-            </span>
-          </div>
-        )}
-
-        {/* Team Information */}
-        {payment.team && (
-          <div className="mt-2 pt-2 border-t border-green-200 flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-700">Team: </span>
-            <div className="flex items-center gap-1">
-              {payment.team.logo}
-              <span className="text-sm text-gray-900">{payment.team.name}</span>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Match Features */}
-      <div className="flex flex-wrap gap-2 mb-3">
-        {payment.lobby?.hasGoalkeeper && (
-          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
-            🥅 Goalkeeper
-          </span>
-        )}
-        {payment.lobby?.hasReferee && (
-          <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs">
-            👨‍⚖️ Referee
-          </span>
-        )}
-        {payment.lobby?.hasCamera && (
-          <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">
-            📹 Camera
-          </span>
-        )}
-        {payment.lobby?.matchPrivacy === "private" && (
-          <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">
-            Private Match
-          </span>
-        )}
-      </div>
-
-      {/* Score if available */}
-      {(payment.lobby?.goalTeam1 > 0 || payment.lobby?.goalTeam2 > 0) && (
-        <div className="mb-3 p-2 bg-gray-50 rounded-lg border border-gray-200">
-          <div className="text-sm font-medium text-gray-700 text-center">
-            Score:{" "}
-            <span className="text-gray-900">
-              {payment.lobby.goalTeam1} - {payment.lobby.goalTeam2}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Private Key Section */}
-      {payment.lobby?.matchPrivacy === "private" &&
-        payment.lobby?.privateKey && (
-          <div className="mb-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
-            <div className="flex items-center justify-between">
+        {/* Lobby Information */}
+        <div className="bg-green-50 rounded-lg p-3 mb-3 border border-green-100">
+          <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
+            <Gamepad2 className="w-4 h-4" />
+            Match Information
+          </h4>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-purple-800">
-                  Private Key:
-                </span>
-                <span
-                  className={`text-sm font-mono ${showPrivateKey[payment.id] ? "text-purple-600" : "text-purple-400"}`}
-                >
-                  {showPrivateKey[payment.id]
-                    ? payment.lobby.privateKey
-                    : "••••••••••••••••"}
+                <Calendar className="w-4 h-4 text-gray-400" />
+                <span className="font-medium">Date:</span>
+                <span className="text-gray-700">
+                  {payment.lobby?.date || "N/A"}
                 </span>
               </div>
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-gray-400" />
+                <span className="font-medium">Time:</span>
+                <span className="text-gray-700">
+                  {payment.lobby?.time || "N/A"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-gray-400" />
+                <span className="font-medium">Location:</span>
+                <span className="text-gray-700 truncate">
+                  {payment.lobby?.location || "N/A"}
+                </span>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-gray-400" />
+                <span className="font-medium">Format:</span>
+                <span className="text-gray-700">
+                  {payment.lobby?.teamSize || "N/A"}v
+                  {payment.lobby?.teamSize || "N/A"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-green-500" />
+                <span className="font-medium">Duration:</span>
+                <span className="text-gray-700">
+                  {payment.lobby?.matchTime || "N/A"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Target className="w-4 h-4 text-gray-400" />
+                <span className="font-medium">Type:</span>
+                <span className="text-gray-700 capitalize">
+                  {payment.lobby?.matchType || "N/A"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Match Format */}
+          {payment.lobby?.matchFormat && payment.lobby.matchFormat !== "N/A" && (
+            <div className="mt-2 pt-2 border-t border-green-200">
+              <span className="text-sm font-medium text-gray-700">
+                Formation:{" "}
+              </span>
+              <span className="text-sm text-gray-900">
+                {payment.lobby.matchFormat}
+              </span>
+            </div>
+          )}
+
+          {/* Team Information */}
+          {payment.team && (
+            <div className="mt-2 pt-2 border-t border-green-200 flex items-center gap-2">
+              <span className="text-sm font-medium text-gray-700">Team: </span>
+              <div className="flex items-center gap-1">
+                {payment.team.logo}
+                <span className="text-sm text-gray-900">{payment.team.name}</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Match Features */}
+        <div className="flex flex-wrap gap-2 mb-3">
+          {payment.lobby?.hasGoalkeeper && (
+            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
+              🥅 Goalkeeper
+            </span>
+          )}
+          {payment.lobby?.hasReferee && (
+            <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs">
+              👨‍⚖️ Referee
+            </span>
+          )}
+          {payment.lobby?.hasCamera && (
+            <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">
+              📹 Camera
+            </span>
+          )}
+          {payment.lobby?.matchPrivacy === "private" && (
+            <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">
+              Private Match
+            </span>
+          )}
+        </div>
+
+        {/* Score if available */}
+        {(payment.lobby?.goalTeam1 > 0 || payment.lobby?.goalTeam2 > 0) && (
+          <div className="mb-3 p-2 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="text-sm font-medium text-gray-700 text-center">
+              Score:{" "}
+              <span className="text-gray-900">
+                {payment.lobby.goalTeam1} - {payment.lobby.goalTeam2}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Private Key Section */}
+        {payment.lobby?.matchPrivacy === "private" &&
+          payment.lobby?.privateKey && (
+            <div className="mb-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-purple-800">
+                    Private Key:
+                  </span>
+                  <span
+                    className={`text-sm font-mono ${showPrivateKey[payment.id] ? "text-purple-600" : "text-purple-400"}`}
+                  >
+                    {showPrivateKey[payment.id]
+                      ? payment.lobby.privateKey
+                      : "••••••••••••••••"}
+                  </span>
+                </div>
+                <button
+                  onClick={() => togglePrivateKeyVisibility(payment.id)}
+                  className="p-1 text-purple-600 hover:bg-purple-100 rounded"
+                >
+                  {showPrivateKey[payment.id] ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+
+        {/* Action Buttons - UPDATED for new status flow */}
+        <div className="flex justify-end gap-2 pt-3 border-t">
+          {payment.method === "cash" && payment.status === "pending" && (
+            <>
               <button
-                onClick={() => togglePrivateKeyVisibility(payment.id)}
-                className="p-1 text-purple-600 hover:bg-purple-100 rounded"
+                onClick={() =>
+                  updatePaymentStatus(payment.rawPayment._id, "success", "approve")
+                }
+                disabled={approveLoading}
+                className="px-4 py-2 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {showPrivateKey[payment.id] ? (
-                  <EyeOff className="w-4 h-4" />
+                {approveLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                    <span>Processing...</span>
+                  </>
                 ) : (
-                  <Eye className="w-4 h-4" />
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    <span>Approve Payment</span>
+                  </>
                 )}
               </button>
-            </div>
-          </div>
-        )}
+              <button
+                onClick={() =>
+                  updatePaymentStatus(payment.rawPayment._id, "failed", "reject")
+                }
+                disabled={rejectLoading}
+                className="px-4 py-2 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {rejectLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                    <span>Processing...</span>
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="w-4 h-4" />
+                    <span>Reject Payment</span>
+                  </>
+                )}
+              </button>
+            </>
+          )}
 
-      {/* Action Buttons for cash payments */}
-      {payment.method === "cash" && payment.status === "pending" && (
-        <div className="flex justify-end gap-2 pt-3 border-t">
-          <button
-            onClick={() =>
-              updatePaymentStatus(payment.rawPayment._id, "success")
-            }
-            className="px-4 py-2 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
-          >
-            <CheckCircle className="w-4 h-4" />
-            Approve Payment
-          </button>
-          <button
-            onClick={() =>
-              updatePaymentStatus(payment.rawPayment._id, "failed")
-            }
-            className="px-4 py-2 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2"
-          >
-            <XCircle className="w-4 h-4" />
-            Reject Payment
-          </button>
+          {payment.method === "cash" && payment.status === "success" && (
+            <button
+              onClick={() =>
+                updatePaymentStatus(payment.rawPayment._id, "paid", "paid")
+              }
+              disabled={paidLoading}
+              className="px-4 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {paidLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                  <span>Processing...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4" />
+                  <span>Mark as Paid</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
-      )}
-    </div>
-  );
+      </div>
+    );
+  };
 
-  // Update the renderTournamentFeeCard function to include organizer badge
+  // Render Tournament Fee Payment Card - UPDATED with new status flow
   const renderTournamentFeeCard = (payment) => {
     const team = payment.team || {};
     const tournament = payment.tournament || {};
+    const approveLoading = actionLoading[`${payment.rawPayment._id}_approve`];
+    const rejectLoading = actionLoading[`${payment.rawPayment._id}_reject`];
+    const paidLoading = actionLoading[`${payment.rawPayment._id}_paid`];
 
     return (
       <div
@@ -1345,11 +1534,10 @@ const Payments = () => {
                   Status:
                 </span>
                 <span
-                  className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    tournament.status === "active"
+                  className={`px-2 py-1 rounded-full text-xs font-medium ${tournament.status === "active"
                       ? "bg-green-100 text-green-800"
                       : "bg-gray-100 text-gray-800"
-                  }`}
+                    }`}
                 >
                   {tournament.status || "N/A"}
                 </span>
@@ -1370,39 +1558,85 @@ const Payments = () => {
           </div>
         </div>
 
-        {/* Action Buttons for cash payments */}
-        {payment.method === "cash" && payment.status === "pending" && (
-          <div className="flex justify-end gap-2 pt-3 border-t">
+        {/* Action Buttons - UPDATED for new status flow */}
+        <div className="flex justify-end gap-2 pt-3 border-t">
+          {payment.method === "cash" && payment.status === "pending" && (
+            <>
+              <button
+                onClick={() =>
+                  updatePaymentStatus(payment.rawPayment._id, "success", "approve")
+                }
+                disabled={approveLoading}
+                className="px-4 py-2 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {approveLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                    <span>Processing...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    <span>Approve Payment</span>
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() =>
+                  updatePaymentStatus(payment.rawPayment._id, "failed", "reject")
+                }
+                disabled={rejectLoading}
+                className="px-4 py-2 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {rejectLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                    <span>Processing...</span>
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="w-4 h-4" />
+                    <span>Reject Payment</span>
+                  </>
+                )}
+              </button>
+            </>
+          )}
+
+          {payment.method === "cash" && payment.status === "success" && (
             <button
               onClick={() =>
-                updatePaymentStatus(payment.rawPayment._id, "success")
+                updatePaymentStatus(payment.rawPayment._id, "paid", "paid")
               }
-              className="px-4 py-2 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
+              disabled={paidLoading}
+              className="px-4 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <CheckCircle className="w-4 h-4" />
-              Approve Payment
+              {paidLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                  <span>Processing...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4" />
+                  <span>Mark as Paid</span>
+                </>
+              )}
             </button>
-            <button
-              onClick={() =>
-                updatePaymentStatus(payment.rawPayment._id, "failed")
-              }
-              className="px-4 py-2 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2"
-            >
-              <XCircle className="w-4 h-4" />
-              Reject Payment
-            </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     );
   };
 
-  // Update the renderRefundRequestCard function to include organizer badge
+  // Render Refund Request Card
   const renderRefundRequestCard = (refund) => {
     const team = refund.team || {};
     const player = refund.player || {};
     const lobby = refund.lobby || {};
     const tournament = refund.tournament || {};
+    const approveLoading = actionLoading[`refund_approve_${refund.rawData._id}`];
+    const rejectLoading = actionLoading[`refund_reject_${refund.rawData._id}`];
 
     return (
       <div
@@ -1518,17 +1752,37 @@ const Payments = () => {
           <div className="flex justify-end gap-2 pt-3 border-t">
             <button
               onClick={() => handleApproveRefund(refund.rawData)}
-              className="px-4 py-2 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
+              disabled={approveLoading}
+              className="px-4 py-2 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <CheckCircle className="w-4 h-4" />
-              Approve Refund
+              {approveLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                  <span>Processing...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4" />
+                  <span>Approve Refund</span>
+                </>
+              )}
             </button>
             <button
               onClick={() => handleRejectRefund(refund.rawData)}
-              className="px-4 py-2 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2"
+              disabled={rejectLoading}
+              className="px-4 py-2 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <XCircle className="w-4 h-4" />
-              Reject Refund
+              {rejectLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                  <span>Processing...</span>
+                </>
+              ) : (
+                <>
+                  <XCircle className="w-4 h-4" />
+                  <span>Reject Refund</span>
+                </>
+              )}
             </button>
           </div>
         )}
@@ -1539,7 +1793,7 @@ const Payments = () => {
   return (
     <div className="bg-gray-50 min-h-screen">
       {/* Header */}
-      <div className="bg-white  px-4 py-4 border-b">
+      <div className="bg-white px-4 py-4 border-b">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-xl font-bold text-gray-900">
@@ -1576,81 +1830,6 @@ const Payments = () => {
                 <Filter className="w-5 h-5" />
               </button>
             )}
-            <div className="flex hidden items-center border border-gray-300 rounded-lg overflow-hidden">
-              <button
-                onClick={() => setViewMode("cards")}
-                className={`p-2 ${viewMode === "cards" ? "bg-gray-100 text-gray-700" : "text-gray-400"}`}
-              >
-                <div className="grid grid-cols-2 gap-0.5 w-5 h-5">
-                  <div className="bg-current rounded-sm"></div>
-                  <div className="bg-current rounded-sm"></div>
-                  <div className="bg-current rounded-sm"></div>
-                  <div className="bg-current rounded-sm"></div>
-                </div>
-              </button>
-              <button
-                onClick={() => setViewMode("list")}
-                className={`p-2 ${viewMode === "list" ? "bg-gray-100 text-gray-700" : "text-gray-400"}`}
-              >
-                <div className="space-y-1 w-5 h-5">
-                  <div className="bg-current h-1 rounded-full"></div>
-                  <div className="bg-current h-1 rounded-full"></div>
-                  <div className="bg-current h-1 rounded-full"></div>
-                </div>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Summary Stats */}
-        <div className="grid hidden grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-          <div className="bg-white border border-gray-200 rounded-lg p-3">
-            <div className="text-sm text-gray-600">Total Payments</div>
-            <div className="text-xl font-bold text-gray-900">
-              {transformedPayments.length}
-            </div>
-            <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
-              <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-              {
-                transformedPayments.filter((p) => p.type === "TEAM_FEE").length
-              }{" "}
-              Team Fees
-            </div>
-            <div className="flex items-center gap-1 text-xs text-gray-500">
-              <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
-              {
-                transformedPayments.filter((p) => p.type === "TOURNAMENT_FEE")
-                  .length
-              }{" "}
-              Tournament Fees
-            </div>
-          </div>
-          <div className="bg-white border border-gray-200 rounded-lg p-3">
-            <div className="text-sm text-gray-600">Pending Payments</div>
-            <div className="text-xl font-bold text-yellow-600">
-              {transformedPayments.filter((p) => p.status === "pending").length}
-            </div>
-            <div className="text-xs text-gray-500 mt-1">Require action</div>
-          </div>
-          <div className="bg-white border border-gray-200 rounded-lg p-3">
-            <div className="text-sm text-gray-600">Total Amount</div>
-            <div className="text-xl font-bold text-green-600">
-              {transformedPayments.reduce((sum, p) => sum + p.amount, 0)} AED
-            </div>
-            <div className="text-xs text-gray-500 mt-1">All time</div>
-          </div>
-          <div className="bg-white border border-gray-200 rounded-lg p-3">
-            <div className="text-sm text-gray-600">Refund Requests</div>
-            <div className="text-xl font-bold text-orange-600">
-              {transformedRefundRequests.length}
-            </div>
-            <div className="text-xs text-gray-500 mt-1">
-              {
-                transformedRefundRequests.filter((r) => r.status === "pending")
-                  .length
-              }{" "}
-              pending
-            </div>
           </div>
         </div>
       </div>
@@ -1705,7 +1884,8 @@ const Payments = () => {
                 }
               >
                 <option value="all">All Status</option>
-                <option value="success">Paid</option>
+                <option value="paid">Paid</option>
+                <option value="success">Approved</option>
                 <option value="pending">Pending</option>
                 <option value="failed">Failed</option>
                 <option value="refund">Refunded</option>
@@ -1788,11 +1968,10 @@ const Payments = () => {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`flex-1 py-3 px-4 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-              activeTab === tab
+            className={`flex-1 py-3 px-4 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${activeTab === tab
                 ? "border-green-500 text-green-600 bg-green-50"
                 : "border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-            }`}
+              }`}
           >
             {tab}
             {tab === "Team Fees" && (
@@ -1822,7 +2001,25 @@ const Payments = () => {
 
       {/* Content */}
       <div className="px-4 py-4">
-        {filteredPayments.length === 0 ? (
+        {activeTab === "Refund Requests" ? (
+          transformedRefundRequests.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="mx-auto w-24 h-24 text-gray-300 mb-4">
+                <DollarSign className="w-full h-full" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                No refund requests found
+              </h3>
+              <p className="text-gray-500 max-w-md mx-auto">
+                No refund requests are currently pending or match your search criteria.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {transformedRefundRequests.map(renderRefundRequestCard)}
+            </div>
+          )
+        ) : Object.keys(groupedPayments).length === 0 ? (
           <div className="text-center py-12">
             <div className="mx-auto w-24 h-24 text-gray-300 mb-4">
               <DollarSign className="w-full h-full" />
@@ -1831,20 +2028,25 @@ const Payments = () => {
               No payments found
             </h3>
             <p className="text-gray-500 max-w-md mx-auto">
-              {activeTab === "Refund Requests"
-                ? "No refund requests are currently pending or match your search criteria."
-                : "No payments match your current filters or search criteria."}
+              No payments match your current filters or search criteria.
             </p>
           </div>
         ) : (
-          <div className={viewMode === "list" ? "space-y-2" : "space-y-4"}>
-            {activeTab === "Refund Requests"
-              ? filteredPayments.map(renderRefundRequestCard)
-              : filteredPayments.map((payment) =>
-                  payment.type === "TEAM_FEE"
-                    ? renderTeamFeeCard(payment)
-                    : renderTournamentFeeCard(payment),
+          <div className="space-y-6">
+            {Object.values(groupedPayments).map((group) => (
+              <div key={group.id} className="mb-4">
+                <GroupHeader group={group} />
+                {expandedGroups[group.id] && (
+                  <div className="bg-gray-50 rounded-b-xl border border-t-0 border-gray-200 p-4">
+                    {group.payments.map((payment) =>
+                      payment.type === "TEAM_FEE"
+                        ? renderTeamFeeCard(payment)
+                        : renderTournamentFeeCard(payment)
+                    )}
+                  </div>
                 )}
+              </div>
+            ))}
           </div>
         )}
       </div>

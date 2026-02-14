@@ -77,8 +77,8 @@ function Layout() {
             {/* User profile with dropdown */}
             <div className="relative group">
               <div className="flex items-center gap-2 cursor-pointer">
-                <img src="/vite.svg" alt="User" className="h-8 w-8 rounded-full border" />
-                <span className="text-gray-700 font-semibold">Halid</span>
+                <img src="https://top-top-images.s3.us-east-1.amazonaws.com/images-1769499415714-910364937.png" alt="User" className="h-8 w-8 rounded-full border" />
+                <span className="text-gray-700 font-semibold">Halit</span>
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-gray-500">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
                 </svg>
