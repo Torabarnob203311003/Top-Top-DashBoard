@@ -467,7 +467,7 @@ function Products() {
 
         {/* Lobbies Count */}
         <div className="mb-6">
-          <p className="text-gray-600">
+          <p className="text-gray-600 hidden">
             Showing {filteredLobbies.length} of {lobbies.length} lobbies
           </p>
         </div>

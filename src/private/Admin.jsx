@@ -29,7 +29,7 @@ const AdMinPrivate = ({ children }) => {
           return <Navigate state={location.pathname} to="/login" replace />;
      }
 
-console.log(decoded,"decode user")
+
     
      if (decoded?.email && decoded.role === "admin") {
           return children;

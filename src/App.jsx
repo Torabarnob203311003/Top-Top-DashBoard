@@ -26,7 +26,7 @@ function App() {
           <Route path="user-management" element={<AdMinPrivate><UserManagement /></AdMinPrivate>} />
           <Route path="payments" element={<AdMinPrivate><Payments /></AdMinPrivate>} />
           <Route path="insights" element={<AdMinPrivate><Insights /></AdMinPrivate>} />
-          {/* <Route path="settings" element={<Settings />} /> */}
+          <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>
     </Router>

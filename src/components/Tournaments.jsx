@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars */
 import React, { useState, useEffect, useRef } from "react";
-import { Search, Calendar, MapPin, Flag, DollarSign, Shield, ShieldOff, Plus, X } from 'lucide-react';
+import { Search, Calendar, MapPin, Flag, DollarSign, Shield, ShieldOff, Plus, X, Trash2 } from 'lucide-react';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -10,6 +10,7 @@ function Tournaments() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(null); // Store tournament ID to delete
 
   // Create tournament form state - Updated according to schema
   const [createFormData, setCreateFormData] = useState({
@@ -31,9 +32,23 @@ function Tournaments() {
   const [locationSuggestions, setLocationSuggestions] = useState([]);
   const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
   const [creatingTournament, setCreatingTournament] = useState(false);
+  const [deletingTournament, setDeletingTournament] = useState(false);
 
   // Add a ref for the location input
   const locationInputRef = useRef(null);
+
+  // Get auth token from localStorage
+  const getAuthToken = () => {
+    return localStorage.getItem('accessToken');
+  };
+
+  // Get headers with authorization
+  const getAuthHeaders = () => {
+    const token = getAuthToken();
+    return {
+      'Authorization': token ? `Bearer ${token}` : '',
+    };
+  };
 
   // Fetch tournaments from API
   const fetchTournaments = async () => {
@@ -59,11 +74,20 @@ function Tournaments() {
   // Update tournament status
   const updateTournamentStatus = async (tournamentId, newStatus) => {
     try {
+      const token = getAuthToken();
+      if (!token) {
+        toast.error('Authentication required. Please log in again.');
+        return;
+      }
+
       const formData = new FormData();
       formData.append('status', newStatus);
 
       const response = await fetch(`https://api.toptopfootball.com/api/v1/tournament/update-tournament/${tournamentId}`, {
         method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
         body: formData,
       });
 
@@ -74,11 +98,49 @@ function Tournaments() {
         // Refresh the tournaments list
         fetchTournaments();
       } else {
-        toast.error(`Failed to ${newStatus === 'block' ? 'block' : 'activate'} tournament`);
+        toast.error(result.message || `Failed to ${newStatus === 'block' ? 'block' : 'activate'} tournament`);
       }
     } catch (error) {
       toast.error('Error updating tournament status');
       console.error('Error:', error);
+    }
+  };
+
+  // Delete tournament
+  const deleteTournament = async (tournamentId) => {
+    try {
+      const token = getAuthToken();
+      if (!token) {
+        toast.error('Authentication required. Please log in again.');
+        return;
+      }
+
+      setDeletingTournament(true);
+
+      const response = await fetch(`https://api.toptopfootball.com/api/v1/tournament/delete-tournament/${tournamentId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success('Tournament deleted successfully');
+        // Close delete confirmation
+        setShowDeleteConfirm(null);
+        // Refresh the tournaments list
+        fetchTournaments();
+      } else {
+        toast.error(result.message || 'Failed to delete tournament');
+      }
+    } catch (error) {
+      toast.error('Error deleting tournament');
+      console.error('Error:', error);
+    } finally {
+      setDeletingTournament(false);
     }
   };
 
@@ -240,6 +302,12 @@ function Tournaments() {
       return;
     }
 
+    const token = getAuthToken();
+    if (!token) {
+      toast.error('Authentication required. Please log in again.');
+      return;
+    }
+
     setCreatingTournament(true);
 
     try {
@@ -276,20 +344,12 @@ function Tournaments() {
       // Append image file with key 'images' (not 'image')
       formData.append('images', tournamentImage);
 
-      // Get authorization token if available
-      const token = localStorage.getItem('accessToken');
-      console.log('Authorization token available:', !!token);
-
-      // Prepare headers
-      const headers = {};
-      if (token) {
-        headers['Authorization'] = token;
-      }
-
       // Send request to create tournament
       const response = await fetch('https://api.toptopfootball.com/api/v1/tournament/create-tournament', {
         method: 'POST',
-        headers: headers,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
         body: formData,
       });
 
@@ -465,28 +525,38 @@ function Tournaments() {
               <div className="flex-1">
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold text-gray-900 text-lg">{tournament.name}</h3>
-                  <button
-                    onClick={() => updateTournamentStatus(
-                      tournament._id,
-                      tournament.status === 'active' ? 'block' : 'active'
-                    )}
-                    className={`flex items-center gap-2 px-3 py-1 rounded-lg text-sm font-medium ${tournament.status === 'active'
-                      ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                      : 'bg-green-100 text-green-700 hover:bg-green-200'
-                      }`}
-                  >
-                    {tournament.status === 'active' ? (
-                      <>
-                        <ShieldOff className="w-4 h-4" />
-                        Block
-                      </>
-                    ) : (
-                      <>
-                        <Shield className="w-4 h-4" />
-                        Unblock
-                      </>
-                    )}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setShowDeleteConfirm(tournament._id)}
+                      className="flex items-center gap-2 px-3 py-1 rounded-lg text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
+                      title="Delete tournament"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete
+                    </button>
+                    <button
+                      onClick={() => updateTournamentStatus(
+                        tournament._id,
+                        tournament.status === 'active' ? 'block' : 'active'
+                      )}
+                      className={`flex items-center gap-2 px-3 py-1 rounded-lg text-sm font-medium ${tournament.status === 'active'
+                        ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                        : 'bg-green-100 text-green-700 hover:bg-green-200'
+                        }`}
+                    >
+                      {tournament.status === 'active' ? (
+                        <>
+                          <ShieldOff className="w-4 h-4" />
+                          Block
+                        </>
+                      ) : (
+                        <>
+                          <Shield className="w-4 h-4" />
+                          Unblock
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2 mt-1">
@@ -583,7 +653,7 @@ function Tournaments() {
                 >
                   <option value="League">League</option>
                   <option value="Knockout">Knockout</option>
-                   <option value="Both">Both</option>
+                  <option value="Both">Both</option>
                 </select>
               </div>
 
@@ -814,6 +884,46 @@ function Tournaments() {
                   'Create Tournament'
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-md">
+            <div className="p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Delete Tournament</h3>
+              <p className="text-gray-600 mb-6">
+                Are you sure you want to delete this tournament? This action cannot be undone.
+              </p>
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  onClick={() => setShowDeleteConfirm(null)}
+                  className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  disabled={deletingTournament}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => deleteTournament(showDeleteConfirm)}
+                  disabled={deletingTournament}
+                  className={`px-6 py-2 rounded-lg font-medium text-white transition-colors ${deletingTournament
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-red-500 hover:bg-red-600'
+                    }`}
+                >
+                  {deletingTournament ? (
+                    <span className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Deleting...
+                    </span>
+                  ) : (
+                    'Delete Tournament'
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
