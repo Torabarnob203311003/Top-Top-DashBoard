@@ -46,7 +46,7 @@ function Tournaments() {
   const getAuthHeaders = () => {
     const token = getAuthToken();
     return {
-      'Authorization': token ? `Bearer ${token}` : '',
+      'Authorization': token ? `${token}` : '',
     };
   };
 
@@ -86,7 +86,7 @@ function Tournaments() {
       const response = await fetch(`https://api.toptopfootball.com/api/v1/tournament/update-tournament/${tournamentId}`, {
         method: 'PATCH',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `${token}`,
         },
         body: formData,
       });
@@ -120,7 +120,7 @@ function Tournaments() {
       const response = await fetch(`https://api.toptopfootball.com/api/v1/tournament/delete-tournament/${tournamentId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `${token}`,
           'Content-Type': 'application/json',
         },
       });
@@ -348,7 +348,7 @@ function Tournaments() {
       const response = await fetch('https://api.toptopfootball.com/api/v1/tournament/create-tournament', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `${token}`,
         },
         body: formData,
       });
