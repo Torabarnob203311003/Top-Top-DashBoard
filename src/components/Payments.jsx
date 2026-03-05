@@ -51,70 +51,41 @@ const Payments = () => {
   const [organizers, setOrganizers] = useState([]);
   const [loadingOrganizers, setLoadingOrganizers] = useState(false);
 
-  // Group expansion state
   const [expandedGroups, setExpandedGroups] = useState({});
-
-  // Loading states for payment actions
   const [actionLoading, setActionLoading] = useState({});
 
-  // Get token from localStorage
-  const getToken = () => {
-    return localStorage.getItem("accessToken");
-  };
+  const getToken = () => localStorage.getItem("accessToken");
 
-  // Fetch payments data from API
   useEffect(() => {
     fetchPayments();
     fetchOrganizers();
   }, []);
 
-  // Fetch refund requests when tab changes to Refund Requests
   useEffect(() => {
     if (activeTab === "Refund Requests") {
       fetchRefundRequests();
     }
   }, [activeTab]);
 
-  // Fetch organizers from API
   const fetchOrganizers = async () => {
     const token = getToken();
-
-    if (!token) {
-      toast.error("Please login to view organizers");
-      return;
-    }
-
+    if (!token) { toast.error("Please login to view organizers"); return; }
     try {
       setLoadingOrganizers(true);
-      const response = await fetch(
-        "https://api.toptopfootball.com/api/v1/auth/all-player",
-        {
-          headers: {
-            Authorization: token,
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
+      const response = await fetch("https://api.toptopfootball.com/api/v1/auth/all-player", {
+        headers: { Authorization: token, "Content-Type": "application/json" },
+      });
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
-        throw new Error(
-          errorData?.message ||
-          `Failed to fetch organizers (${response.status})`,
-        );
+        throw new Error(errorData?.message || `Failed to fetch organizers (${response.status})`);
       }
-
       const result = await response.json();
-
       if (result.success) {
-        const organizersData =
-          result.data?.filter((user) => user.role === "organizer") || [];
-        setOrganizers(organizersData);
+        setOrganizers(result.data?.filter((user) => user.role === "organizer") || []);
       } else {
         toast.error(result.message || "Failed to fetch organizers");
       }
     } catch (error) {
-      console.error("Error fetching organizers:", error);
       toast.error(error.message || "Failed to load organizers");
     } finally {
       setLoadingOrganizers(false);
@@ -123,348 +94,176 @@ const Payments = () => {
 
   const fetchPayments = async () => {
     const token = getToken();
-
-    if (!token) {
-      toast.error("Please login to view payments");
-      setLoading(false);
-      return;
-    }
-
+    if (!token) { toast.error("Please login to view payments"); setLoading(false); return; }
     try {
       setLoading(true);
-      const response = await fetch(
-        "https://api.toptopfootball.com/api/v1/payment/all-payment",
-        {
-          method: "GET",
-          headers: {
-            Authorization: `${token}`,
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
+      const response = await fetch("https://api.toptopfootball.com/api/v1/payment/all-payment", {
+        method: "GET",
+        headers: { Authorization: `${token}`, "Content-Type": "application/json" },
+      });
       const result = await response.json();
-
       if (result.success) {
         setPayments(result.data);
       } else {
         toast.error(result.message || "Failed to load payments");
       }
     } catch (error) {
-      console.error("Error fetching payments:", error);
       toast.error("Error loading payments");
     } finally {
       setLoading(false);
     }
   };
 
-  // Fetch refund requests from API
   const fetchRefundRequests = async () => {
     const token = getToken();
-
-    if (!token) {
-      toast.error("Please login to view refund requests");
-      return;
-    }
-
+    if (!token) { toast.error("Please login to view refund requests"); return; }
     try {
       setRefundLoading(true);
-      const response = await fetch(
-        "https://api.toptopfootball.com/api/v1/refund/all-refund-request",
-        {
-          method: "GET",
-          headers: {
-            Authorization: `${token}`,
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
+      const response = await fetch("https://api.toptopfootball.com/api/v1/refund/all-refund-request", {
+        method: "GET",
+        headers: { Authorization: `${token}`, "Content-Type": "application/json" },
+      });
       const result = await response.json();
-
       if (result.success) {
         setRefundRequests(result.data);
       } else {
         toast.error(result.message || "Failed to load refund requests");
       }
     } catch (error) {
-      console.error("Error fetching refund requests:", error);
       toast.error("Error loading refund requests");
     } finally {
       setRefundLoading(false);
     }
   };
 
-  // Update payment status function with loading state
   const updatePaymentStatus = async (paymentId, newStatus, actionType) => {
     const token = getToken();
     const actionKey = `${paymentId}_${actionType}`;
-
-    if (!token) {
-      toast.error("Please login to update payment status");
-      return;
-    }
-
+    if (!token) { toast.error("Please login to update payment status"); return; }
     try {
       setActionLoading((prev) => ({ ...prev, [actionKey]: true }));
-
       let response;
-      let result;
-
       if (newStatus === "success") {
-        // pending → success
-        response = await fetch(
-          `https://api.toptopfootball.com/api/v1/payment/payment-success?paymentId=${paymentId}`,
-          {
-            method: "GET",
-            headers: {
-              Authorization: `${token}`,
-              "Content-Type": "application/json",
-            },
-          },
-        );
+        response = await fetch(`https://api.toptopfootball.com/api/v1/payment/payment-success?paymentId=${paymentId}`, {
+          method: "GET",
+          headers: { Authorization: `${token}`, "Content-Type": "application/json" },
+        });
       } else if (newStatus === "paid") {
-        // success → paid
-        response = await fetch(
-          `https://api.toptopfootball.com/api/v1/payment/payment-paid?paymentId=${paymentId}`,
-          {
-            method: "PATCH",
-            headers: {
-              Authorization: `${token}`,
-              "Content-Type": "application/json",
-            },
-          },
-        );
+        response = await fetch(`https://api.toptopfootball.com/api/v1/payment/payment-paid?paymentId=${paymentId}`, {
+          method: "PATCH",
+          headers: { Authorization: `${token}`, "Content-Type": "application/json" },
+        });
       } else {
-        // pending → failed
-        response = await fetch(
-          `https://api.toptopfootball.com/api/v1/payment/payment-cancel?paymentId=${paymentId}`,
-          {
-            method: "GET",
-            headers: {
-              Authorization: `${token}`,
-              "Content-Type": "application/json",
-            },
-          },
-        );
+        response = await fetch(`https://api.toptopfootball.com/api/v1/payment/payment-cancel?paymentId=${paymentId}`, {
+          method: "GET",
+          headers: { Authorization: `${token}`, "Content-Type": "application/json" },
+        });
       }
-
-      result = await response.json();
-
+      const result = await response.json();
       if (result.success) {
-        toast.success(
-          newStatus === "paid"
-            ? "Payment marked as paid successfully"
-            : `Payment marked as ${newStatus}`,
-          { duration: 3000 }
-        );
-        fetchPayments(); // Refresh the list
+        toast.success(newStatus === "paid" ? "Payment marked as paid successfully" : `Payment marked as ${newStatus}`, { duration: 3000 });
+        fetchPayments();
       } else {
         toast.error(result.message || "Failed to update payment status");
       }
     } catch (error) {
-      console.error("Error updating payment status:", error);
       toast.error("Error updating payment status");
     } finally {
       setActionLoading((prev) => ({ ...prev, [actionKey]: false }));
     }
   };
 
-  // Handle refund approval with loading state
   const handleApproveRefund = async (refundRequest) => {
     const token = getToken();
     const actionKey = `refund_approve_${refundRequest._id}`;
-
-    if (!token) {
-      toast.error("Please login to process refund");
-      return;
-    }
-
+    if (!token) { toast.error("Please login to process refund"); return; }
     try {
       setActionLoading((prev) => ({ ...prev, [actionKey]: true }));
-
-      const requestBody = {
-        lobbyId: refundRequest.lobbyId?._id,
-        playerId: refundRequest.playerId?._id,
-      };
-
-      if (!requestBody.lobbyId || !requestBody.playerId) {
-        toast.error("Missing required data for refund approval");
-        return;
-      }
-
-      const response = await fetch(
-        "https://api.toptopfootball.com/api/v1/refund/accept-refund-request",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(requestBody),
-        },
-      );
-
+      const requestBody = { lobbyId: refundRequest.lobbyId?._id, playerId: refundRequest.playerId?._id };
+      if (!requestBody.lobbyId || !requestBody.playerId) { toast.error("Missing required data for refund approval"); return; }
+      const response = await fetch("https://api.toptopfootball.com/api/v1/refund/accept-refund-request", {
+        method: "POST",
+        headers: { Authorization: `${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+      });
       const result = await response.json();
-
-      if (result.success) {
-        toast.success("Refund approved successfully");
-        fetchRefundRequests();
-      } else {
-        toast.error(result.message || "Failed to approve refund");
-      }
+      if (result.success) { toast.success("Refund approved successfully"); fetchRefundRequests(); }
+      else { toast.error(result.message || "Failed to approve refund"); }
     } catch (error) {
-      console.error("Error approving refund:", error);
       toast.error("Error approving refund");
     } finally {
       setActionLoading((prev) => ({ ...prev, [actionKey]: false }));
     }
   };
 
-  // Handle refund rejection with loading state
   const handleRejectRefund = async (refundRequest) => {
     const token = getToken();
     const actionKey = `refund_reject_${refundRequest._id}`;
-
-    if (!token) {
-      toast.error("Please login to process refund");
-      return;
-    }
-
+    if (!token) { toast.error("Please login to process refund"); return; }
     try {
       setActionLoading((prev) => ({ ...prev, [actionKey]: true }));
-
-      const requestBody = {
-        lobbyId: refundRequest.lobbyId?._id,
-        playerId: refundRequest.playerId?._id,
-      };
-
-      if (!requestBody.lobbyId || !requestBody.playerId) {
-        toast.error("Missing required data for refund rejection");
-        return;
-      }
-
-      const response = await fetch(
-        "https://api.toptopfootball.com/api/v1/refund/reject-refund-request",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(requestBody),
-        },
-      );
-
+      const requestBody = { lobbyId: refundRequest.lobbyId?._id, playerId: refundRequest.playerId?._id };
+      if (!requestBody.lobbyId || !requestBody.playerId) { toast.error("Missing required data for refund rejection"); return; }
+      const response = await fetch("https://api.toptopfootball.com/api/v1/refund/reject-refund-request", {
+        method: "POST",
+        headers: { Authorization: `${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+      });
       const result = await response.json();
-
-      if (result.success) {
-        toast.success("Refund rejected successfully");
-        fetchRefundRequests();
-      } else {
-        toast.error(result.message || "Failed to reject refund");
-      }
+      if (result.success) { toast.success("Refund rejected successfully"); fetchRefundRequests(); }
+      else { toast.error(result.message || "Failed to reject refund"); }
     } catch (error) {
-      console.error("Error rejecting refund:", error);
       toast.error("Error rejecting refund");
     } finally {
       setActionLoading((prev) => ({ ...prev, [actionKey]: false }));
     }
   };
 
-  // Toggle private key visibility
   const togglePrivateKeyVisibility = (paymentId) => {
-    setShowPrivateKey((prev) => ({
-      ...prev,
-      [paymentId]: !prev[paymentId],
-    }));
+    setShowPrivateKey((prev) => ({ ...prev, [paymentId]: !prev[paymentId] }));
   };
 
-  // Toggle group expansion
   const toggleGroupExpansion = (groupId) => {
-    setExpandedGroups((prev) => ({
-      ...prev,
-      [groupId]: !prev[groupId],
-    }));
+    setExpandedGroups((prev) => ({ ...prev, [groupId]: !prev[groupId] }));
   };
 
-  // Format date from API
   const formatMatchDate = (dateString) => {
     if (!dateString) return "N/A";
     try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      });
-    } catch (error) {
-      return "Invalid Date";
-    }
+      return new Date(dateString).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+    } catch { return "Invalid Date"; }
   };
 
-  // Format time from API
   const formatMatchTime = (timeString) => {
     if (!timeString) return "N/A";
     try {
-      if (timeString.includes("AM") || timeString.includes("PM")) {
-        return timeString;
-      }
+      if (timeString.includes("AM") || timeString.includes("PM")) return timeString;
       const [hours, minutes] = timeString.split(":");
       const hour = parseInt(hours);
       const ampm = hour >= 12 ? "PM" : "AM";
-      const formattedHour = hour % 12 || 12;
-      return `${formattedHour}:${minutes} ${ampm}`;
-    } catch (error) {
-      return timeString;
-    }
+      return `${hour % 12 || 12}:${minutes} ${ampm}`;
+    } catch { return timeString; }
   };
 
-  // Format tournament date
   const formatTournamentDate = (dateString) => {
     if (!dateString) return "N/A";
     try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      });
-    } catch (error) {
-      return "Invalid Date";
-    }
+      return new Date(dateString).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+    } catch { return "Invalid Date"; }
   };
 
-  // Format payment creation date
   const formatPaymentDate = (dateString) => {
     if (!dateString) return "N/A";
     try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString("en-US", {
-        month: "2-digit",
-        day: "2-digit",
-        year: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    } catch (error) {
-      return "Invalid Date";
-    }
+      return new Date(dateString).toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
+    } catch { return "Invalid Date"; }
   };
 
-  // Get player avatar or default
   const getPlayerAvatar = (player) => {
     if (player?.imageUrl) {
       return (
-        <img
-          src={player.imageUrl}
-          alt={player.FullName}
-          className="w-8 h-8 rounded-full object-cover border-2 border-gray-200"
-          onError={(e) => {
-            e.target.style.display = "none";
-            e.target.nextSibling.style.display = "flex";
-          }}
-        />
+        <img src={player.imageUrl} alt={player.FullName} className="w-8 h-8 rounded-full object-cover border-2 border-gray-200"
+          onError={(e) => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }} />
       );
     }
     return (
@@ -474,19 +273,11 @@ const Payments = () => {
     );
   };
 
-  // Get team logo or default
   const getTeamLogo = (team) => {
     if (team?.image || team?.imageUrl) {
       return (
-        <img
-          src={team.image || team.imageUrl}
-          alt={team.teamName || "Team"}
-          className="w-8 h-8 rounded-full object-cover border-2 border-gray-200"
-          onError={(e) => {
-            e.target.style.display = "none";
-            e.target.nextSibling.style.display = "flex";
-          }}
-        />
+        <img src={team.image || team.imageUrl} alt={team.teamName || "Team"} className="w-8 h-8 rounded-full object-cover border-2 border-gray-200"
+          onError={(e) => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }} />
       );
     }
     return (
@@ -496,39 +287,23 @@ const Payments = () => {
     );
   };
 
-  // Get team name safely
   const getTeamName = (team) => {
     if (!team) return "Unknown Team";
     return team.teamName || "Unknown Team";
   };
 
-  // Get organizer name from lobby or tournament
   const getOrganizerName = (item) => {
-    if (item.lobby?.organizer) {
-      return item.lobby.organizer.FullName || item.lobby.organizer;
-    }
-    if (item.tournament?.organizer) {
-      return item.tournament.organizer.FullName || item.tournament.organizer;
-    }
+    if (item.lobby?.organizer) return item.lobby.organizer.FullName || item.lobby.organizer;
+    if (item.tournament?.organizer) return item.tournament.organizer.FullName || item.tournament.organizer;
     return "No Organizer";
   };
 
-  // Get organizer ID from lobby or tournament
   const getOrganizerId = (item) => {
-    if (item.lobby?.organizer) {
-      return typeof item.lobby.organizer === "object"
-        ? item.lobby.organizer._id
-        : item.lobby.organizer;
-    }
-    if (item.tournament?.organizer) {
-      return typeof item.tournament.organizer === "object"
-        ? item.tournament.organizer._id
-        : item.tournament.organizer;
-    }
+    if (item.lobby?.organizer) return typeof item.lobby.organizer === "object" ? item.lobby.organizer._id : item.lobby.organizer;
+    if (item.tournament?.organizer) return typeof item.tournament.organizer === "object" ? item.tournament.organizer._id : item.tournament.organizer;
     return null;
   };
 
-  // Get player stats for display
   const getPlayerStats = (player) => {
     if (!player) return null;
     return {
@@ -541,7 +316,6 @@ const Payments = () => {
     };
   };
 
-  // Transform API data
   const transformedPayments = useMemo(() => {
     return payments.map((payment) => {
       const lobby = payment.lobbyId;
@@ -575,18 +349,16 @@ const Payments = () => {
           type: "TEAM_FEE",
           title: "Player Match Payment",
           subtitle: lobby?.title || "Unknown Lobby",
-          player: player
-            ? {
-              id: player._id,
-              name: player.FullName || "Unknown Player",
-              userName: player.userName || "N/A",
-              email: player.email || "N/A",
-              nationality: player.nationality || "N/A",
-              age: player.age || "N/A",
-              avatar: getPlayerAvatar(player),
-              stats: playerStats,
-            }
-            : null,
+          player: player ? {
+            id: player._id,
+            name: player.FullName || "Unknown Player",
+            userName: player.userName || "N/A",
+            email: player.email || "N/A",
+            nationality: player.nationality || "N/A",
+            age: player.age || "N/A",
+            avatar: getPlayerAvatar(player),
+            stats: playerStats,
+          } : null,
           lobby: {
             id: lobby?._id,
             title: lobby?.title || "Unknown Lobby",
@@ -608,13 +380,7 @@ const Payments = () => {
             organizerName: baseData.organizerName,
             organizerId: baseData.organizerId,
           },
-          team: team
-            ? {
-              id: team._id,
-              name: getTeamName(team),
-              logo: getTeamLogo(team),
-            }
-            : null,
+          team: team ? { id: team._id, name: getTeamName(team), logo: getTeamLogo(team) } : null,
           isTournament: false,
         };
       }
@@ -625,18 +391,16 @@ const Payments = () => {
           type: "TOURNAMENT_FEE",
           title: "Tournament Registration",
           subtitle: tournament?.name || "Unknown Tournament",
-          team: team
-            ? {
-              id: team._id,
-              name: getTeamName(team),
-              logo: getTeamLogo(team),
-              totalMatch: team?.totalMatch || 0,
-              win: team?.win || 0,
-              draw: team?.draw || 0,
-              loss: team?.loss || 0,
-              players: team?.players?.length || 0,
-            }
-            : null,
+          team: team ? {
+            id: team._id,
+            name: getTeamName(team),
+            logo: getTeamLogo(team),
+            totalMatch: team?.totalMatch || 0,
+            win: team?.win || 0,
+            draw: team?.draw || 0,
+            loss: team?.loss || 0,
+            players: team?.players?.length || 0,
+          } : null,
           tournament: {
             id: tournament?._id,
             name: tournament?.name || "Unknown Tournament",
@@ -668,7 +432,6 @@ const Payments = () => {
     });
   }, [payments]);
 
-  // Transform refund request data
   const transformedRefundRequests = useMemo(() => {
     return refundRequests.map((refund) => {
       const lobby = refund.lobbyId;
@@ -694,13 +457,7 @@ const Payments = () => {
           ...baseRefundData,
           type: "LOBBY_REFUND",
           title: "Lobby Match Refund",
-          player: player
-            ? {
-              id: player._id,
-              name: player.FullName || "Unknown Player",
-              userName: player.userName || "N/A",
-            }
-            : null,
+          player: player ? { id: player._id, name: player.FullName || "Unknown Player", userName: player.userName || "N/A" } : null,
           lobby: {
             id: lobby?._id,
             title: lobby?.title || "Unknown Lobby",
@@ -711,13 +468,7 @@ const Payments = () => {
             organizerName: baseRefundData.organizerName,
             organizerId: baseRefundData.organizerId,
           },
-          team: team
-            ? {
-              id: team._id,
-              name: getTeamName(team),
-              logo: getTeamLogo(team),
-            }
-            : null,
+          team: team ? { id: team._id, name: getTeamName(team), logo: getTeamLogo(team) } : null,
         };
       }
 
@@ -726,13 +477,7 @@ const Payments = () => {
           ...baseRefundData,
           type: "TOURNAMENT_REFUND",
           title: "Tournament Refund",
-          team: team
-            ? {
-              id: team._id,
-              name: getTeamName(team),
-              logo: getTeamLogo(team),
-            }
-            : null,
+          team: team ? { id: team._id, name: getTeamName(team), logo: getTeamLogo(team) } : null,
           tournament: {
             id: tournament?._id,
             name: tournament?.name || "Unknown Tournament",
@@ -744,96 +489,54 @@ const Payments = () => {
         };
       }
 
-      return {
-        ...baseRefundData,
-        type: "UNKNOWN_REFUND",
-        title: "Unknown Refund Request",
-      };
+      return { ...baseRefundData, type: "UNKNOWN_REFUND", title: "Unknown Refund Request" };
     });
   }, [refundRequests]);
 
-  // Filter payments based on active tab and filters
   const filteredPayments = useMemo(() => {
     let filtered = transformedPayments;
 
     if (activeTab === "Team Fees") {
-      filtered = filtered.filter((payment) => payment.type === "TEAM_FEE");
+      filtered = filtered.filter((p) => p.type === "TEAM_FEE");
     } else if (activeTab === "Tournament Fees") {
-      filtered = filtered.filter(
-        (payment) => payment.type === "TOURNAMENT_FEE",
-      );
+      filtered = filtered.filter((p) => p.type === "TOURNAMENT_FEE");
     } else if (activeTab === "Refund Requests") {
       return transformedRefundRequests;
     }
 
     if (searchTerm) {
-      filtered = filtered.filter((item) => {
-        const searchLower = searchTerm.toLowerCase();
-        return (
-          item.player?.name?.toLowerCase().includes(searchLower) ||
-          item.player?.userName?.toLowerCase().includes(searchLower) ||
-          item.team?.name?.toLowerCase().includes(searchLower) ||
-          item.lobby?.title?.toLowerCase().includes(searchLower) ||
-          item.tournament?.name?.toLowerCase().includes(searchLower) ||
-          item.title?.toLowerCase().includes(searchLower) ||
-          item.organizerName?.toLowerCase().includes(searchLower)
-        );
-      });
+      const s = searchTerm.toLowerCase();
+      filtered = filtered.filter((item) =>
+        item.player?.name?.toLowerCase().includes(s) ||
+        item.player?.userName?.toLowerCase().includes(s) ||
+        item.team?.name?.toLowerCase().includes(s) ||
+        item.lobby?.title?.toLowerCase().includes(s) ||
+        item.tournament?.name?.toLowerCase().includes(s) ||
+        item.title?.toLowerCase().includes(s) ||
+        item.organizerName?.toLowerCase().includes(s)
+      );
     }
 
     if (activeTab !== "Refund Requests") {
-      if (filters.paymentMethod !== "all") {
-        filtered = filtered.filter(
-          (payment) => payment.method === filters.paymentMethod,
-        );
-      }
-      if (filters.paymentStatus !== "all") {
-        filtered = filtered.filter(
-          (payment) => payment.status === filters.paymentStatus,
-        );
-      }
-      if (filters.matchType !== "all") {
-        filtered = filtered.filter((payment) =>
-          payment.lobby?.matchType
-            ?.toLowerCase()
-            .includes(filters.matchType.toLowerCase()),
-        );
-      }
-      if (filters.position !== "all") {
-        filtered = filtered.filter(
-          (payment) =>
-            payment.playerPosition?.toLowerCase() ===
-            filters.position.toLowerCase(),
-        );
-      }
+      if (filters.paymentMethod !== "all") filtered = filtered.filter((p) => p.method === filters.paymentMethod);
+      if (filters.paymentStatus !== "all") filtered = filtered.filter((p) => p.status === filters.paymentStatus);
+      if (filters.matchType !== "all") filtered = filtered.filter((p) => p.lobby?.matchType?.toLowerCase().includes(filters.matchType.toLowerCase()));
+      if (filters.position !== "all") filtered = filtered.filter((p) => p.playerPosition?.toLowerCase() === filters.position.toLowerCase());
       if (filters.organizer !== "all") {
         if (filters.organizer === "no_organizer") {
-          filtered = filtered.filter(
-            (payment) =>
-              !payment.organizerId || payment.organizerName === "No Organizer"
-          );
+          filtered = filtered.filter((p) => !p.organizerId || p.organizerName === "No Organizer");
         } else {
-          filtered = filtered.filter(
-            (payment) => payment.organizerId === filters.organizer,
-          );
+          filtered = filtered.filter((p) => p.organizerId === filters.organizer);
         }
       }
     }
 
     return filtered;
-  }, [
-    transformedPayments,
-    transformedRefundRequests,
-    activeTab,
-    searchTerm,
-    filters,
-  ]);
+  }, [transformedPayments, transformedRefundRequests, activeTab, searchTerm, filters]);
 
-  // Group payments by groupId
+  // ✅ FIXED: Set এর বদলে count object ব্যবহার করছি
   const groupedPayments = useMemo(() => {
-    if (activeTab === "Refund Requests") {
-      return {};
-    }
+    if (activeTab === "Refund Requests") return {};
 
     const groups = {};
 
@@ -847,7 +550,8 @@ const Payments = () => {
           payments: [],
           totalAmount: 0,
           paymentCount: 0,
-          statuses: new Set(),
+          // ✅ Set এর বদলে সরাসরি count রাখছি
+          statusCounts: { paid: 0, success: 0, pending: 0, failed: 0 },
           methods: new Set(),
         };
       }
@@ -855,109 +559,65 @@ const Payments = () => {
       groups[groupId].payments.push(payment);
       groups[groupId].totalAmount += payment.amount;
       groups[groupId].paymentCount++;
-      groups[groupId].statuses.add(payment.status);
+
+      // ✅ প্রতিটা payment এর status সঠিকভাবে count হচ্ছে
+      const s = payment.status;
+      if (groups[groupId].statusCounts[s] !== undefined) {
+        groups[groupId].statusCounts[s]++;
+      }
+
       groups[groupId].methods.add(payment.method);
     });
 
     return groups;
   }, [filteredPayments, activeTab]);
 
-  // Get positions from team fee payments
   const availablePositions = useMemo(() => {
     const positions = new Set();
-    transformedPayments.forEach((payment) => {
-      if (payment.type === "TEAM_FEE" && payment.playerPosition) {
-        positions.add(payment.playerPosition);
-      }
-    });
+    transformedPayments.forEach((p) => { if (p.type === "TEAM_FEE" && p.playerPosition) positions.add(p.playerPosition); });
     return Array.from(positions).sort();
   }, [transformedPayments]);
 
-  // Status badge component - UPDATED to show "Approved" for success status
   const getStatusBadge = (status) => {
     const statusConfig = {
-      paid: {
-        color: "bg-green-100 text-green-800",
-        text: "Paid",
-        icon: CheckCircle,
-      },
-      success: {
-        color: "bg-blue-100 text-blue-800",
-        text: "Approved",
-        icon: CheckCircle,
-      },
-      pending: {
-        color: "bg-yellow-100 text-yellow-800",
-        text: "Pending",
-        icon: Clock,
-      },
-      failed: {
-        color: "bg-red-100 text-red-800",
-        text: "Failed",
-        icon: XCircle,
-      },
-      refund: {
-        color: "bg-purple-100 text-purple-800",
-        text: "Refunded",
-        icon: DollarSign,
-      },
-      accept: {
-        color: "bg-green-100 text-green-800",
-        text: "Approved",
-        icon: CheckCircle,
-      },
-      rejected: {
-        color: "bg-red-100 text-red-800",
-        text: "Rejected",
-        icon: XCircle,
-      },
+      paid: { color: "bg-green-100 text-green-800", text: "Paid", icon: CheckCircle },
+      success: { color: "bg-blue-100 text-blue-800", text: "Approved", icon: CheckCircle },
+      pending: { color: "bg-yellow-100 text-yellow-800", text: "Pending", icon: Clock },
+      failed: { color: "bg-red-100 text-red-800", text: "Failed", icon: XCircle },
+      refund: { color: "bg-purple-100 text-purple-800", text: "Refunded", icon: DollarSign },
+      accept: { color: "bg-green-100 text-green-800", text: "Approved", icon: CheckCircle },
+      rejected: { color: "bg-red-100 text-red-800", text: "Rejected", icon: XCircle },
     };
-
     const config = statusConfig[status] || statusConfig.pending;
     const IconComponent = config.icon;
-
     return (
-      <span
-        className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${config.color}`}
-      >
+      <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${config.color}`}>
         <IconComponent className="w-3 h-3" />
         <span>{config.text}</span>
       </span>
     );
   };
 
-  // Organizer badge component
   const getOrganizerBadge = (organizerName) => {
     if (!organizerName || organizerName === "No Organizer") {
       return (
         <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs flex items-center gap-1">
-          <User className="w-3 h-3" />
-          <span>No Organizer</span>
+          <User className="w-3 h-3" /><span>No Organizer</span>
         </span>
       );
     }
     return (
       <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs flex items-center gap-1">
-        <User className="w-3 h-3" />
-        <span className="truncate max-w-[120px]">{organizerName}</span>
+        <User className="w-3 h-3" /><span className="truncate max-w-[120px]">{organizerName}</span>
       </span>
     );
   };
 
-  // Clear filters
   const clearFilters = () => {
-    setFilters({
-      paymentMethod: "all",
-      paymentStatus: "all",
-      matchType: "all",
-      position: "all",
-      organizer: "all",
-    });
+    setFilters({ paymentMethod: "all", paymentStatus: "all", matchType: "all", position: "all", organizer: "all" });
   };
 
-  // Loading state
-  const isLoading =
-    loading || (activeTab === "Refund Requests" && refundLoading);
+  const isLoading = loading || (activeTab === "Refund Requests" && refundLoading);
 
   if (isLoading) {
     return (
@@ -970,21 +630,14 @@ const Payments = () => {
     );
   }
 
-  // Group Header Component
+  // ✅ FIXED GroupHeader — সরাসরি group.statusCounts থেকে নিচ্ছে
   const GroupHeader = ({ group }) => {
     const isExpanded = expandedGroups[group.id];
-    const statusCounts = {
-      paid: Array.from(group.statuses).filter(s => s === "paid").length,
-      success: Array.from(group.statuses).filter(s => s === "success").length,
-      pending: Array.from(group.statuses).filter(s => s === "pending").length,
-      failed: Array.from(group.statuses).filter(s => s === "failed").length,
-    };
+    const { paid, success, pending, failed } = group.statusCounts;
 
     return (
-      <div
-        className="bg-white rounded-t-xl border border-gray-200 p-4 cursor-pointer hover:bg-gray-50 transition-colors"
-        onClick={() => toggleGroupExpansion(group.id)}
-      >
+      <div className="bg-white rounded-t-xl border border-gray-200 p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+        onClick={() => toggleGroupExpansion(group.id)}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3 flex-1">
             <div className="p-2 bg-blue-50 rounded-lg">
@@ -992,32 +645,32 @@ const Payments = () => {
             </div>
             <div className="flex-1">
               <h3 className="font-semibold text-gray-900">{group.name}</h3>
-              <div className="flex items-center gap-4 mt-1">
+              <div className="flex items-center gap-4 mt-1 flex-wrap">
                 <span className="text-sm text-gray-600">
-                  {group.paymentCount} payment{group.paymentCount !== 1 ? 's' : ''}
+                  {group.paymentCount} payment{group.paymentCount !== 1 ? "s" : ""}
                 </span>
                 <span className="text-sm font-medium text-green-600">
                   Total: {group.totalAmount} AED
                 </span>
-                <div className="flex items-center gap-2">
-                  {statusCounts.paid > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  {paid > 0 && (
                     <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
-                      {statusCounts.paid} Paid
+                      {paid} Paid
                     </span>
                   )}
-                  {statusCounts.success > 0 && (
+                  {success > 0 && (
                     <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
-                      {statusCounts.success} Approved
+                      {success} Approved
                     </span>
                   )}
-                  {statusCounts.pending > 0 && (
+                  {pending > 0 && (
                     <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">
-                      {statusCounts.pending} Pending
+                      {pending} Pending
                     </span>
                   )}
-                  {statusCounts.failed > 0 && (
+                  {failed > 0 && (
                     <span className="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full">
-                      {statusCounts.failed} Failed
+                      {failed} Failed
                     </span>
                   )}
                 </div>
@@ -1028,94 +681,56 @@ const Payments = () => {
             <span className="text-sm text-gray-500">
               {group.type === "lobby" ? "🎮 Lobby" : "🏆 Tournament"}
             </span>
-            {isExpanded ? (
-              <ChevronUp className="w-5 h-5 text-gray-400" />
-            ) : (
-              <ChevronDown className="w-5 h-5 text-gray-400" />
-            )}
+            {isExpanded ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
           </div>
         </div>
       </div>
     );
   };
 
-  // Render Team Fee Payment Card - UPDATED with new status flow
   const renderTeamFeeCard = (payment) => {
     const approveLoading = actionLoading[`${payment.rawPayment._id}_approve`];
     const rejectLoading = actionLoading[`${payment.rawPayment._id}_reject`];
     const paidLoading = actionLoading[`${payment.rawPayment._id}_paid`];
 
     return (
-      <div
-        key={payment.id}
-        className="bg-white rounded-xl border border-gray-200 p-4 mb-4 shadow-sm hover:shadow-md transition-shadow"
-      >
-        {/* Header */}
+      <div key={payment.id} className="bg-white rounded-xl border border-gray-200 p-4 mb-4 shadow-sm hover:shadow-md transition-shadow">
         <div className="flex justify-between items-start mb-4">
           <div className="flex items-center gap-2">
-            <div className="p-2 bg-blue-50 rounded-lg">
-              <Trophy className="w-5 h-5 text-blue-600" />
-            </div>
+            <div className="p-2 bg-blue-50 rounded-lg"><Trophy className="w-5 h-5 text-blue-600" /></div>
             <div>
               <h3 className="font-semibold text-gray-900">{payment.title}</h3>
               <p className="text-sm text-gray-600">{payment.subtitle}</p>
             </div>
           </div>
           <div className="text-right">
-            <div className="text-lg font-bold text-green-600">
-              {payment.formattedAmount}
-            </div>
-            <div className="text-xs text-gray-500 mt-1">
-              {payment.paymentDate}
-            </div>
+            <div className="text-lg font-bold text-green-600">{payment.formattedAmount}</div>
+            <div className="text-xs text-gray-500 mt-1">{payment.paymentDate}</div>
           </div>
         </div>
 
-        {/* Payment Status & Details */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             {getStatusBadge(payment.status)}
-            <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs">
-              {payment.method.toUpperCase()}
-            </span>
-            {payment.guestPlayer && (
-              <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">
-                Guest Player
-              </span>
-            )}
+            <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs">{payment.method.toUpperCase()}</span>
+            {payment.guestPlayer && <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">Guest Player</span>}
           </div>
-          <div className="text-sm text-gray-600">
-            Position:{" "}
-            <span className="font-medium">{payment.playerPosition}</span>
-          </div>
+          <div className="text-sm text-gray-600">Position: <span className="font-medium">{payment.playerPosition}</span></div>
         </div>
 
-        {/* Organizer Information */}
-        <div className="mb-3 flex items-center gap-2">
-          {getOrganizerBadge(payment.organizerName)}
-        </div>
+        <div className="mb-3 flex items-center gap-2">{getOrganizerBadge(payment.organizerName)}</div>
 
-        {/* Player Information */}
         <div className="bg-blue-50 rounded-lg p-3 mb-3 border border-blue-100">
-          <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
-            <User className="w-4 h-4" />
-            Player Details
-          </h4>
+          <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2"><User className="w-4 h-4" />Player Details</h4>
           {payment.player ? (
             <>
               <div className="flex items-center gap-3">
                 {payment.player.avatar}
                 <div className="flex-1">
-                  <div className="font-medium text-gray-900">
-                    {payment.player.name}
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    @{payment.player.userName}
-                  </div>
+                  <div className="font-medium text-gray-900">{payment.player.name}</div>
+                  <div className="text-sm text-gray-600">@{payment.player.userName}</div>
                   <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
-                    <span>{payment.player.nationality}</span>
-                    <span>•</span>
-                    <span>Age: {payment.player.age}</span>
+                    <span>{payment.player.nationality}</span><span>•</span><span>Age: {payment.player.age}</span>
                   </div>
                 </div>
                 {payment.player?.stats && (
@@ -1127,245 +742,93 @@ const Payments = () => {
               </div>
               {payment.player.stats && (
                 <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-blue-200">
-                  <div className="text-center">
-                    <div className="text-sm font-medium text-gray-900">
-                      {payment.player.stats.matches}
-                    </div>
-                    <div className="text-xs text-gray-500">Matches</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-sm font-medium text-gray-900">
-                      {payment.player.stats.goals}
-                    </div>
-                    <div className="text-xs text-gray-500">Goals</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-sm font-medium text-gray-900">
-                      {payment.player.stats.assists}
-                    </div>
-                    <div className="text-xs text-gray-500">Assists</div>
-                  </div>
+                  <div className="text-center"><div className="text-sm font-medium text-gray-900">{payment.player.stats.matches}</div><div className="text-xs text-gray-500">Matches</div></div>
+                  <div className="text-center"><div className="text-sm font-medium text-gray-900">{payment.player.stats.goals}</div><div className="text-xs text-gray-500">Goals</div></div>
+                  <div className="text-center"><div className="text-sm font-medium text-gray-900">{payment.player.stats.assists}</div><div className="text-xs text-gray-500">Assists</div></div>
                 </div>
               )}
             </>
           ) : (
-            <div className="text-center py-2 text-gray-500">
-              No player information available
-            </div>
+            <div className="text-center py-2 text-gray-500">No player information available</div>
           )}
         </div>
 
-        {/* Lobby Information */}
         <div className="bg-green-50 rounded-lg p-3 mb-3 border border-green-100">
-          <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
-            <Gamepad2 className="w-4 h-4" />
-            Match Information
-          </h4>
+          <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2"><Gamepad2 className="w-4 h-4" />Match Information</h4>
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-gray-400" />
-                <span className="font-medium">Date:</span>
-                <span className="text-gray-700">
-                  {payment.lobby?.date || "N/A"}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-gray-400" />
-                <span className="font-medium">Time:</span>
-                <span className="text-gray-700">
-                  {payment.lobby?.time || "N/A"}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-gray-400" />
-                <span className="font-medium">Location:</span>
-                <span className="text-gray-700 truncate">
-                  {payment.lobby?.location || "N/A"}
-                </span>
-              </div>
+              <div className="flex items-center gap-2"><Calendar className="w-4 h-4 text-gray-400" /><span className="font-medium">Date:</span><span className="text-gray-700">{payment.lobby?.date || "N/A"}</span></div>
+              <div className="flex items-center gap-2"><Clock className="w-4 h-4 text-gray-400" /><span className="font-medium">Time:</span><span className="text-gray-700">{payment.lobby?.time || "N/A"}</span></div>
+              <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-gray-400" /><span className="font-medium">Location:</span><span className="text-gray-700 truncate">{payment.lobby?.location || "N/A"}</span></div>
             </div>
             <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-gray-400" />
-                <span className="font-medium">Format:</span>
-                <span className="text-gray-700">
-                  {payment.lobby?.teamSize || "N/A"}v
-                  {payment.lobby?.teamSize || "N/A"}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-green-500" />
-                <span className="font-medium">Duration:</span>
-                <span className="text-gray-700">
-                  {payment.lobby?.matchTime || "N/A"}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Target className="w-4 h-4 text-gray-400" />
-                <span className="font-medium">Type:</span>
-                <span className="text-gray-700 capitalize">
-                  {payment.lobby?.matchType || "N/A"}
-                </span>
-              </div>
+              <div className="flex items-center gap-2"><Users className="w-4 h-4 text-gray-400" /><span className="font-medium">Format:</span><span className="text-gray-700">{payment.lobby?.teamSize || "N/A"}v{payment.lobby?.teamSize || "N/A"}</span></div>
+              <div className="flex items-center gap-2"><Clock className="w-4 h-4 text-green-500" /><span className="font-medium">Duration:</span><span className="text-gray-700">{payment.lobby?.matchTime || "N/A"}</span></div>
+              <div className="flex items-center gap-2"><Target className="w-4 h-4 text-gray-400" /><span className="font-medium">Type:</span><span className="text-gray-700 capitalize">{payment.lobby?.matchType || "N/A"}</span></div>
             </div>
           </div>
-
-          {/* Match Format */}
           {payment.lobby?.matchFormat && payment.lobby.matchFormat !== "N/A" && (
             <div className="mt-2 pt-2 border-t border-green-200">
-              <span className="text-sm font-medium text-gray-700">
-                Formation:{" "}
-              </span>
-              <span className="text-sm text-gray-900">
-                {payment.lobby.matchFormat}
-              </span>
+              <span className="text-sm font-medium text-gray-700">Formation: </span>
+              <span className="text-sm text-gray-900">{payment.lobby.matchFormat}</span>
             </div>
           )}
-
-          {/* Team Information */}
           {payment.team && (
             <div className="mt-2 pt-2 border-t border-green-200 flex items-center gap-2">
               <span className="text-sm font-medium text-gray-700">Team: </span>
-              <div className="flex items-center gap-1">
-                {payment.team.logo}
-                <span className="text-sm text-gray-900">{payment.team.name}</span>
-              </div>
+              <div className="flex items-center gap-1">{payment.team.logo}<span className="text-sm text-gray-900">{payment.team.name}</span></div>
             </div>
           )}
         </div>
 
-        {/* Match Features */}
         <div className="flex flex-wrap gap-2 mb-3">
-          {payment.lobby?.hasGoalkeeper && (
-            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
-              🥅 Goalkeeper
-            </span>
-          )}
-          {payment.lobby?.hasReferee && (
-            <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs">
-              👨‍⚖️ Referee
-            </span>
-          )}
-          {payment.lobby?.hasCamera && (
-            <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">
-              📹 Camera
-            </span>
-          )}
-          {payment.lobby?.matchPrivacy === "private" && (
-            <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">
-              Private Match
-            </span>
-          )}
+          {payment.lobby?.hasGoalkeeper && <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">🥅 Goalkeeper</span>}
+          {payment.lobby?.hasReferee && <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs">👨‍⚖️ Referee</span>}
+          {payment.lobby?.hasCamera && <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">📹 Camera</span>}
+          {payment.lobby?.matchPrivacy === "private" && <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">Private Match</span>}
         </div>
 
-        {/* Score if available */}
         {(payment.lobby?.goalTeam1 > 0 || payment.lobby?.goalTeam2 > 0) && (
           <div className="mb-3 p-2 bg-gray-50 rounded-lg border border-gray-200">
             <div className="text-sm font-medium text-gray-700 text-center">
-              Score:{" "}
-              <span className="text-gray-900">
-                {payment.lobby.goalTeam1} - {payment.lobby.goalTeam2}
-              </span>
+              Score: <span className="text-gray-900">{payment.lobby.goalTeam1} - {payment.lobby.goalTeam2}</span>
             </div>
           </div>
         )}
 
-        {/* Private Key Section */}
-        {payment.lobby?.matchPrivacy === "private" &&
-          payment.lobby?.privateKey && (
-            <div className="mb-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-purple-800">
-                    Private Key:
-                  </span>
-                  <span
-                    className={`text-sm font-mono ${showPrivateKey[payment.id] ? "text-purple-600" : "text-purple-400"}`}
-                  >
-                    {showPrivateKey[payment.id]
-                      ? payment.lobby.privateKey
-                      : "••••••••••••••••"}
-                  </span>
-                </div>
-                <button
-                  onClick={() => togglePrivateKeyVisibility(payment.id)}
-                  className="p-1 text-purple-600 hover:bg-purple-100 rounded"
-                >
-                  {showPrivateKey[payment.id] ? (
-                    <EyeOff className="w-4 h-4" />
-                  ) : (
-                    <Eye className="w-4 h-4" />
-                  )}
-                </button>
+        {payment.lobby?.matchPrivacy === "private" && payment.lobby?.privateKey && (
+          <div className="mb-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-purple-800">Private Key:</span>
+                <span className={`text-sm font-mono ${showPrivateKey[payment.id] ? "text-purple-600" : "text-purple-400"}`}>
+                  {showPrivateKey[payment.id] ? payment.lobby.privateKey : "••••••••••••••••"}
+                </span>
               </div>
+              <button onClick={() => togglePrivateKeyVisibility(payment.id)} className="p-1 text-purple-600 hover:bg-purple-100 rounded">
+                {showPrivateKey[payment.id] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
-          )}
+          </div>
+        )}
 
-        {/* Action Buttons - UPDATED for new status flow */}
         <div className="flex justify-end gap-2 pt-3 border-t">
           {payment.method === "cash" && payment.status === "pending" && (
             <>
-              <button
-                onClick={() =>
-                  updatePaymentStatus(payment.rawPayment._id, "success", "approve")
-                }
-                disabled={approveLoading}
-                className="px-4 py-2 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {approveLoading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                    <span>Processing...</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="w-4 h-4" />
-                    <span>Approve Payment</span>
-                  </>
-                )}
+              <button onClick={() => updatePaymentStatus(payment.rawPayment._id, "success", "approve")} disabled={approveLoading}
+                className="px-4 py-2 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                {approveLoading ? <><div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" /><span>Processing...</span></> : <><CheckCircle className="w-4 h-4" /><span>Approve Payment</span></>}
               </button>
-              <button
-                onClick={() =>
-                  updatePaymentStatus(payment.rawPayment._id, "failed", "reject")
-                }
-                disabled={rejectLoading}
-                className="px-4 py-2 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {rejectLoading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                    <span>Processing...</span>
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="w-4 h-4" />
-                    <span>Reject Payment</span>
-                  </>
-                )}
+              <button onClick={() => updatePaymentStatus(payment.rawPayment._id, "failed", "reject")} disabled={rejectLoading}
+                className="px-4 py-2 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                {rejectLoading ? <><div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" /><span>Processing...</span></> : <><XCircle className="w-4 h-4" /><span>Reject Payment</span></>}
               </button>
             </>
           )}
-
           {payment.method === "cash" && payment.status === "success" && (
-            <button
-              onClick={() =>
-                updatePaymentStatus(payment.rawPayment._id, "paid", "paid")
-              }
-              disabled={paidLoading}
-              className="px-4 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {paidLoading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                  <span>Processing...</span>
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="w-4 h-4" />
-                  <span>Mark as Paid</span>
-                </>
-              )}
+            <button onClick={() => updatePaymentStatus(payment.rawPayment._id, "paid", "paid")} disabled={paidLoading}
+              className="px-4 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+              {paidLoading ? <><div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" /><span>Processing...</span></> : <><CheckCircle className="w-4 h-4" /><span>Mark as Paid</span></>}
             </button>
           )}
         </div>
@@ -1373,7 +836,6 @@ const Payments = () => {
     );
   };
 
-  // Render Tournament Fee Payment Card - UPDATED with new status flow
   const renderTournamentFeeCard = (payment) => {
     const team = payment.team || {};
     const tournament = payment.tournament || {};
@@ -1382,55 +844,33 @@ const Payments = () => {
     const paidLoading = actionLoading[`${payment.rawPayment._id}_paid`];
 
     return (
-      <div
-        key={payment.id}
-        className="bg-white rounded-xl border border-gray-200 p-4 mb-4 shadow-sm hover:shadow-md transition-shadow"
-      >
-        {/* Header */}
+      <div key={payment.id} className="bg-white rounded-xl border border-gray-200 p-4 mb-4 shadow-sm hover:shadow-md transition-shadow">
         <div className="flex justify-between items-start mb-4">
           <div className="flex items-center gap-2">
-            <div className="p-2 bg-purple-50 rounded-lg">
-              <Award className="w-5 h-5 text-purple-600" />
-            </div>
+            <div className="p-2 bg-purple-50 rounded-lg"><Award className="w-5 h-5 text-purple-600" /></div>
             <div>
               <h3 className="font-semibold text-gray-900">{payment.title}</h3>
               <p className="text-sm text-gray-600">{payment.subtitle}</p>
             </div>
           </div>
           <div className="text-right">
-            <div className="text-lg font-bold text-green-600">
-              {payment.formattedAmount}
-            </div>
-            <div className="text-xs text-gray-500 mt-1">
-              {payment.paymentDate}
-            </div>
+            <div className="text-lg font-bold text-green-600">{payment.formattedAmount}</div>
+            <div className="text-xs text-gray-500 mt-1">{payment.paymentDate}</div>
           </div>
         </div>
 
-        {/* Payment Status & Details */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             {getStatusBadge(payment.status)}
-            <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs">
-              {payment.method.toUpperCase()}
-            </span>
+            <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs">{payment.method.toUpperCase()}</span>
           </div>
-          <div className="text-sm text-gray-600">
-            Tournament Registration Fee
-          </div>
+          <div className="text-sm text-gray-600">Tournament Registration Fee</div>
         </div>
 
-        {/* Organizer Information */}
-        <div className="mb-3 flex items-center gap-2">
-          {getOrganizerBadge(payment.organizerName)}
-        </div>
+        <div className="mb-3 flex items-center gap-2">{getOrganizerBadge(payment.organizerName)}</div>
 
-        {/* Team Information */}
         <div className="bg-purple-50 rounded-lg p-3 mb-3 border border-purple-100">
-          <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
-            <Shield className="w-4 h-4" />
-            Team Details
-          </h4>
+          <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2"><Shield className="w-4 h-4" />Team Details</h4>
           {team.id ? (
             <>
               <div className="flex items-center gap-3">
@@ -1438,190 +878,68 @@ const Payments = () => {
                 <div className="flex-1">
                   <div className="font-medium text-gray-900">{team.name}</div>
                   <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
-                    <div className="flex items-center gap-1">
-                      <Users className="w-3 h-3" />
-                      <span>{team.players || 0} Players</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Gamepad2 className="w-3 h-3" />
-                      <span>{team.totalMatch || 0} Matches</span>
-                    </div>
+                    <div className="flex items-center gap-1"><Users className="w-3 h-3" /><span>{team.players || 0} Players</span></div>
+                    <div className="flex items-center gap-1"><Gamepad2 className="w-3 h-3" /><span>{team.totalMatch || 0} Matches</span></div>
                   </div>
                 </div>
               </div>
               {team.totalMatch > 0 && (
                 <div className="grid grid-cols-4 gap-2 mt-3 pt-3 border-t border-purple-200">
-                  <div className="text-center">
-                    <div className="text-sm font-medium text-green-600">
-                      {team.win || 0}
-                    </div>
-                    <div className="text-xs text-gray-500">Wins</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-sm font-medium text-yellow-600">
-                      {team.draw || 0}
-                    </div>
-                    <div className="text-xs text-gray-500">Draws</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-sm font-medium text-red-600">
-                      {team.loss || 0}
-                    </div>
-                    <div className="text-xs text-gray-500">Losses</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-sm font-medium text-blue-600">
-                      {((team.win / team.totalMatch) * 100 || 0).toFixed(0)}%
-                    </div>
-                    <div className="text-xs text-gray-500">Win Rate</div>
-                  </div>
+                  <div className="text-center"><div className="text-sm font-medium text-green-600">{team.win || 0}</div><div className="text-xs text-gray-500">Wins</div></div>
+                  <div className="text-center"><div className="text-sm font-medium text-yellow-600">{team.draw || 0}</div><div className="text-xs text-gray-500">Draws</div></div>
+                  <div className="text-center"><div className="text-sm font-medium text-red-600">{team.loss || 0}</div><div className="text-xs text-gray-500">Losses</div></div>
+                  <div className="text-center"><div className="text-sm font-medium text-blue-600">{((team.win / team.totalMatch) * 100 || 0).toFixed(0)}%</div><div className="text-xs text-gray-500">Win Rate</div></div>
                 </div>
               )}
             </>
           ) : (
-            <div className="text-center py-2 text-gray-500">
-              No team information available
-            </div>
+            <div className="text-center py-2 text-gray-500">No team information available</div>
           )}
         </div>
 
-        {/* Tournament Information */}
         <div className="bg-green-50 rounded-lg p-3 mb-3 border border-green-100">
-          <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
-            <Trophy className="w-4 h-4" />
-            Tournament Information
-          </h4>
+          <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2"><Trophy className="w-4 h-4" />Tournament Information</h4>
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-gray-400" />
-                <span className="font-medium">Start Date:</span>
-                <span className="text-gray-700">
-                  {tournament.startDate || "N/A"}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-gray-400" />
-                <span className="font-medium">Location:</span>
-                <span className="text-gray-700 truncate">
-                  {tournament.location || "N/A"}
-                </span>
-              </div>
+              <div className="flex items-center gap-2"><Calendar className="w-4 h-4 text-gray-400" /><span className="font-medium">Start Date:</span><span className="text-gray-700">{tournament.startDate || "N/A"}</span></div>
+              <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-gray-400" /><span className="font-medium">Location:</span><span className="text-gray-700 truncate">{tournament.location || "N/A"}</span></div>
             </div>
             <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-green-500" />
-                <span className="font-medium">Duration:</span>
-                <span className="text-gray-700">
-                  {tournament.duration || 0} days
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-gray-400" />
-                <span className="font-medium">Format:</span>
-                <span className="text-gray-700">
-                  {tournament.fieldSize || 5}v{tournament.fieldSize || 5}
-                </span>
-              </div>
+              <div className="flex items-center gap-2"><Clock className="w-4 h-4 text-green-500" /><span className="font-medium">Duration:</span><span className="text-gray-700">{tournament.duration || 0} days</span></div>
+              <div className="flex items-center gap-2"><Users className="w-4 h-4 text-gray-400" /><span className="font-medium">Format:</span><span className="text-gray-700">{tournament.fieldSize || 5}v{tournament.fieldSize || 5}</span></div>
             </div>
           </div>
-
-          {/* Tournament Status and Teams */}
           <div className="mt-2 pt-2 border-t border-green-200">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-700">
-                  Status:
-                </span>
-                <span
-                  className={`px-2 py-1 rounded-full text-xs font-medium ${tournament.status === "active"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-gray-100 text-gray-800"
-                    }`}
-                >
+                <span className="text-sm font-medium text-gray-700">Status:</span>
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${tournament.status === "active" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}`}>
                   {tournament.status || "N/A"}
                 </span>
               </div>
-              <div className="text-sm text-gray-700">
-                Teams:{" "}
-                <span className="font-medium">
-                  {tournament.currentTeams || 0}/{tournament.maxTeams || 0}
-                </span>
-              </div>
+              <div className="text-sm text-gray-700">Teams: <span className="font-medium">{tournament.currentTeams || 0}/{tournament.maxTeams || 0}</span></div>
             </div>
-            <div className="mt-1">
-              <span className="text-sm font-medium text-gray-700">Type: </span>
-              <span className="text-sm text-gray-900">
-                {tournament.type || "N/A"}
-              </span>
-            </div>
+            <div className="mt-1"><span className="text-sm font-medium text-gray-700">Type: </span><span className="text-sm text-gray-900">{tournament.type || "N/A"}</span></div>
           </div>
         </div>
 
-        {/* Action Buttons - UPDATED for new status flow */}
         <div className="flex justify-end gap-2 pt-3 border-t">
           {payment.method === "cash" && payment.status === "pending" && (
             <>
-              <button
-                onClick={() =>
-                  updatePaymentStatus(payment.rawPayment._id, "success", "approve")
-                }
-                disabled={approveLoading}
-                className="px-4 py-2 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {approveLoading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                    <span>Processing...</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="w-4 h-4" />
-                    <span>Approve Payment</span>
-                  </>
-                )}
+              <button onClick={() => updatePaymentStatus(payment.rawPayment._id, "success", "approve")} disabled={approveLoading}
+                className="px-4 py-2 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                {approveLoading ? <><div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" /><span>Processing...</span></> : <><CheckCircle className="w-4 h-4" /><span>Approve Payment</span></>}
               </button>
-              <button
-                onClick={() =>
-                  updatePaymentStatus(payment.rawPayment._id, "failed", "reject")
-                }
-                disabled={rejectLoading}
-                className="px-4 py-2 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {rejectLoading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                    <span>Processing...</span>
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="w-4 h-4" />
-                    <span>Reject Payment</span>
-                  </>
-                )}
+              <button onClick={() => updatePaymentStatus(payment.rawPayment._id, "failed", "reject")} disabled={rejectLoading}
+                className="px-4 py-2 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                {rejectLoading ? <><div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" /><span>Processing...</span></> : <><XCircle className="w-4 h-4" /><span>Reject Payment</span></>}
               </button>
             </>
           )}
-
           {payment.method === "cash" && payment.status === "success" && (
-            <button
-              onClick={() =>
-                updatePaymentStatus(payment.rawPayment._id, "paid", "paid")
-              }
-              disabled={paidLoading}
-              className="px-4 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {paidLoading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                  <span>Processing...</span>
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="w-4 h-4" />
-                  <span>Mark as Paid</span>
-                </>
-              )}
+            <button onClick={() => updatePaymentStatus(payment.rawPayment._id, "paid", "paid")} disabled={paidLoading}
+              className="px-4 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+              {paidLoading ? <><div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" /><span>Processing...</span></> : <><CheckCircle className="w-4 h-4" /><span>Mark as Paid</span></>}
             </button>
           )}
         </div>
@@ -1629,7 +947,6 @@ const Payments = () => {
     );
   };
 
-  // Render Refund Request Card
   const renderRefundRequestCard = (refund) => {
     const team = refund.team || {};
     const player = refund.player || {};
@@ -1639,150 +956,63 @@ const Payments = () => {
     const rejectLoading = actionLoading[`refund_reject_${refund.rawData._id}`];
 
     return (
-      <div
-        key={refund.id}
-        className="bg-white rounded-xl border border-gray-200 p-4 mb-4 shadow-sm hover:shadow-md transition-shadow"
-      >
+      <div key={refund.id} className="bg-white rounded-xl border border-gray-200 p-4 mb-4 shadow-sm hover:shadow-md transition-shadow">
         <div className="flex justify-between items-start mb-4">
           <div className="flex items-center gap-2">
-            <div className="p-2 bg-orange-50 rounded-lg">
-              <LogOut className="w-5 h-5 text-orange-600" />
-            </div>
+            <div className="p-2 bg-orange-50 rounded-lg"><LogOut className="w-5 h-5 text-orange-600" /></div>
             <div>
               <h3 className="font-semibold text-gray-900">{refund.title}</h3>
-              <p className="text-sm text-gray-600">
-                {refund.type === "LOBBY_REFUND"
-                  ? lobby?.title
-                  : tournament?.name}
-              </p>
+              <p className="text-sm text-gray-600">{refund.type === "LOBBY_REFUND" ? lobby?.title : tournament?.name}</p>
             </div>
           </div>
           <div className="text-right">
-            <div className="text-lg font-bold text-orange-600 flex items-center gap-1">
-              <DollarSign className="w-4 h-4" />
-              {refund.formattedRefundAmount}
-            </div>
-            <div className="text-xs text-gray-500 mt-1">
-              {refund.requestDate}
-            </div>
+            <div className="text-lg font-bold text-orange-600 flex items-center gap-1"><DollarSign className="w-4 h-4" />{refund.formattedRefundAmount}</div>
+            <div className="text-xs text-gray-500 mt-1">{refund.requestDate}</div>
           </div>
         </div>
 
-        {/* Refund Status */}
         <div className="flex items-center justify-between mb-4">
           {getStatusBadge(refund.status)}
-          <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs">
-            {refund.isTournament ? "Tournament" : "Lobby"}
-          </span>
+          <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs">{refund.isTournament ? "Tournament" : "Lobby"}</span>
         </div>
 
-        {/* Organizer Information */}
-        <div className="mb-3 flex items-center gap-2">
-          {getOrganizerBadge(refund.organizerName)}
-        </div>
+        <div className="mb-3 flex items-center gap-2">{getOrganizerBadge(refund.organizerName)}</div>
 
-        {/* Player/Team Information */}
         <div className="bg-blue-50 rounded-lg p-3 mb-3 border border-blue-100">
-          <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
-            <User className="w-4 h-4" />
-            {team.id ? "Team Details" : "Player Details"}
-          </h4>
+          <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2"><User className="w-4 h-4" />{team.id ? "Team Details" : "Player Details"}</h4>
           {team.id ? (
-            <div className="flex items-center gap-3">
-              {getTeamLogo(team)}
-              <div>
-                <div className="font-medium text-gray-900">{team.name}</div>
-                <div className="text-sm text-gray-600">Team Registration</div>
-              </div>
-            </div>
+            <div className="flex items-center gap-3">{getTeamLogo(team)}<div><div className="font-medium text-gray-900">{team.name}</div><div className="text-sm text-gray-600">Team Registration</div></div></div>
           ) : player.id ? (
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                <User className="w-4 h-4 text-blue-600" />
-              </div>
-              <div>
-                <div className="font-medium text-gray-900">{player.name}</div>
-                <div className="text-sm text-gray-600">@{player.userName}</div>
-              </div>
+              <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center"><User className="w-4 h-4 text-blue-600" /></div>
+              <div><div className="font-medium text-gray-900">{player.name}</div><div className="text-sm text-gray-600">@{player.userName}</div></div>
             </div>
           ) : (
-            <div className="text-center py-2 text-gray-500">
-              No information available
-            </div>
+            <div className="text-center py-2 text-gray-500">No information available</div>
           )}
         </div>
 
-        {/* Event Information */}
         <div className="bg-green-50 rounded-lg p-3 mb-3 border border-green-100">
           <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
-            {refund.isTournament ? (
-              <Award className="w-4 h-4" />
-            ) : (
-              <Gamepad2 className="w-4 h-4" />
-            )}
+            {refund.isTournament ? <Award className="w-4 h-4" /> : <Gamepad2 className="w-4 h-4" />}
             {refund.isTournament ? "Tournament Info" : "Lobby Info"}
           </h4>
           <div className="text-sm space-y-1">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-gray-400" />
-              <span className="font-medium">Date:</span>
-              <span className="text-gray-700">
-                {refund.isTournament ? tournament.startDate : lobby.date}
-              </span>
-            </div>
-            {!refund.isTournament && (
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-gray-400" />
-                <span className="font-medium">Time:</span>
-                <span className="text-gray-700">{lobby.time}</span>
-              </div>
-            )}
-            <div className="flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-gray-400" />
-              <span className="font-medium">Location:</span>
-              <span className="text-gray-700">
-                {refund.isTournament ? tournament.location : lobby.location}
-              </span>
-            </div>
+            <div className="flex items-center gap-2"><Calendar className="w-4 h-4 text-gray-400" /><span className="font-medium">Date:</span><span className="text-gray-700">{refund.isTournament ? tournament.startDate : lobby.date}</span></div>
+            {!refund.isTournament && <div className="flex items-center gap-2"><Clock className="w-4 h-4 text-gray-400" /><span className="font-medium">Time:</span><span className="text-gray-700">{lobby.time}</span></div>}
+            <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-gray-400" /><span className="font-medium">Location:</span><span className="text-gray-700">{refund.isTournament ? tournament.location : lobby.location}</span></div>
           </div>
         </div>
 
-        {/* Action Buttons */}
         {refund.status === "pending" && (
           <div className="flex justify-end gap-2 pt-3 border-t">
-            <button
-              onClick={() => handleApproveRefund(refund.rawData)}
-              disabled={approveLoading}
-              className="px-4 py-2 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {approveLoading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                  <span>Processing...</span>
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="w-4 h-4" />
-                  <span>Approve Refund</span>
-                </>
-              )}
+            <button onClick={() => handleApproveRefund(refund.rawData)} disabled={approveLoading}
+              className="px-4 py-2 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+              {approveLoading ? <><div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" /><span>Processing...</span></> : <><CheckCircle className="w-4 h-4" /><span>Approve Refund</span></>}
             </button>
-            <button
-              onClick={() => handleRejectRefund(refund.rawData)}
-              disabled={rejectLoading}
-              className="px-4 py-2 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {rejectLoading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                  <span>Processing...</span>
-                </>
-              ) : (
-                <>
-                  <XCircle className="w-4 h-4" />
-                  <span>Reject Refund</span>
-                </>
-              )}
+            <button onClick={() => handleRejectRefund(refund.rawData)} disabled={rejectLoading}
+              className="px-4 py-2 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+              {rejectLoading ? <><div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" /><span>Processing...</span></> : <><XCircle className="w-4 h-4" /><span>Reject Refund</span></>}
             </button>
           </div>
         )}
@@ -1792,41 +1022,22 @@ const Payments = () => {
 
   return (
     <div className="bg-gray-50 min-h-screen">
-      {/* Header */}
       <div className="bg-white px-4 py-4 border-b">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">
-              Payments Dashboard
-            </h1>
-            <p className="text-sm text-gray-600 mt-1">
-              Manage all payment transactions and refund requests
-            </p>
+            <h1 className="text-xl font-bold text-gray-900">Payments Dashboard</h1>
+            <p className="text-sm text-gray-600 mt-1">Manage all payment transactions and refund requests</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="relative flex-1 md:flex-none">
               <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder={
-                  activeTab === "Refund Requests"
-                    ? "Search refund requests..."
-                    : activeTab === "Team Fees"
-                      ? "Search player payments..."
-                      : activeTab === "Tournament Fees"
-                        ? "Search team payments..."
-                        : "Search all payments..."
-                }
+              <input type="text"
+                placeholder={activeTab === "Refund Requests" ? "Search refund requests..." : activeTab === "Team Fees" ? "Search player payments..." : activeTab === "Tournament Fees" ? "Search team payments..." : "Search all payments..."}
                 className="w-full md:w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+                value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
             </div>
             {activeTab !== "Refund Requests" && (
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className={`p-2 rounded-lg ${showFilters ? "bg-green-100 text-green-600" : "text-gray-400 hover:text-gray-600"}`}
-              >
+              <button onClick={() => setShowFilters(!showFilters)} className={`p-2 rounded-lg ${showFilters ? "bg-green-100 text-green-600" : "text-gray-400 hover:text-gray-600"}`}>
                 <Filter className="w-5 h-5" />
               </button>
             )}
@@ -1834,55 +1045,24 @@ const Payments = () => {
         </div>
       </div>
 
-      {/* Filters */}
       {showFilters && activeTab !== "Refund Requests" && (
         <div className="bg-white px-4 py-4 border-b">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-medium text-gray-900">
-              Filter Payments
-            </h3>
-            <button
-              onClick={clearFilters}
-              className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
-            >
-              <X className="w-3 h-3" />
-              Clear all
-            </button>
+            <h3 className="text-sm font-medium text-gray-900">Filter Payments</h3>
+            <button onClick={clearFilters} className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"><X className="w-3 h-3" />Clear all</button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Payment Method
-              </label>
-              <select
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                value={filters.paymentMethod}
-                onChange={(e) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    paymentMethod: e.target.value,
-                  }))
-                }
-              >
+              <label className="block text-xs font-medium text-gray-700 mb-1">Payment Method</label>
+              <select className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" value={filters.paymentMethod} onChange={(e) => setFilters((prev) => ({ ...prev, paymentMethod: e.target.value }))}>
                 <option value="all">All Methods</option>
                 <option value="cash">Cash</option>
                 <option value="online">Online</option>
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Payment Status
-              </label>
-              <select
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                value={filters.paymentStatus}
-                onChange={(e) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    paymentStatus: e.target.value,
-                  }))
-                }
-              >
+              <label className="block text-xs font-medium text-gray-700 mb-1">Payment Status</label>
+              <select className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" value={filters.paymentStatus} onChange={(e) => setFilters((prev) => ({ ...prev, paymentStatus: e.target.value }))}>
                 <option value="all">All Status</option>
                 <option value="paid">Paid</option>
                 <option value="success">Approved</option>
@@ -1892,144 +1072,61 @@ const Payments = () => {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Match Type
-              </label>
-              <select
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                value={filters.matchType}
-                onChange={(e) =>
-                  setFilters((prev) => ({ ...prev, matchType: e.target.value }))
-                }
-              >
+              <label className="block text-xs font-medium text-gray-700 mb-1">Match Type</label>
+              <select className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" value={filters.matchType} onChange={(e) => setFilters((prev) => ({ ...prev, matchType: e.target.value }))}>
                 <option value="all">All Types</option>
                 <option value="solo">Solo</option>
                 <option value="teams">Teams</option>
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Player Position
-              </label>
-              <select
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                value={filters.position}
-                onChange={(e) =>
-                  setFilters((prev) => ({ ...prev, position: e.target.value }))
-                }
-              >
+              <label className="block text-xs font-medium text-gray-700 mb-1">Player Position</label>
+              <select className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" value={filters.position} onChange={(e) => setFilters((prev) => ({ ...prev, position: e.target.value }))}>
                 <option value="all">All Positions</option>
-                {availablePositions.map((position) => (
-                  <option key={position} value={position}>
-                    {position}
-                  </option>
-                ))}
+                {availablePositions.map((position) => <option key={position} value={position}>{position}</option>)}
               </select>
             </div>
-            {/* Organizer Filter */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Organizer
-              </label>
-              <select
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                value={filters.organizer}
-                onChange={(e) =>
-                  setFilters((prev) => ({ ...prev, organizer: e.target.value }))
-                }
-                disabled={loadingOrganizers}
-              >
+              <label className="block text-xs font-medium text-gray-700 mb-1">Organizer</label>
+              <select className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" value={filters.organizer} onChange={(e) => setFilters((prev) => ({ ...prev, organizer: e.target.value }))} disabled={loadingOrganizers}>
                 <option value="all">All Organizers</option>
                 <option value="no_organizer">No Organizer</option>
-                {organizers.map((organizer) => (
-                  <option key={organizer._id} value={organizer._id}>
-                    {organizer.FullName || organizer.email}
-                  </option>
-                ))}
+                {organizers.map((organizer) => <option key={organizer._id} value={organizer._id}>{organizer.FullName || organizer.email}</option>)}
               </select>
-              {loadingOrganizers && (
-                <div className="text-xs text-gray-500 mt-1">
-                  Loading organizers...
-                </div>
-              )}
+              {loadingOrganizers && <div className="text-xs text-gray-500 mt-1">Loading organizers...</div>}
             </div>
           </div>
         </div>
       )}
 
-      {/* Tabs */}
       <div className="bg-white flex overflow-x-auto border-b">
-        {[
-          "All Payments",
-          "Team Fees",
-          "Tournament Fees",
-          "Refund Requests",
-        ].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`flex-1 py-3 px-4 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${activeTab === tab
-                ? "border-green-500 text-green-600 bg-green-50"
-                : "border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-              }`}
-          >
+        {["All Payments", "Team Fees", "Tournament Fees", "Refund Requests"].map((tab) => (
+          <button key={tab} onClick={() => setActiveTab(tab)}
+            className={`flex-1 py-3 px-4 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${activeTab === tab ? "border-green-500 text-green-600 bg-green-50" : "border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50"}`}>
             {tab}
-            {tab === "Team Fees" && (
-              <span className="ml-2 px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded-full">
-                {
-                  transformedPayments.filter((p) => p.type === "TEAM_FEE")
-                    .length
-                }
-              </span>
-            )}
-            {tab === "Tournament Fees" && (
-              <span className="ml-2 px-2 py-0.5 text-xs bg-purple-100 text-purple-800 rounded-full">
-                {
-                  transformedPayments.filter((p) => p.type === "TOURNAMENT_FEE")
-                    .length
-                }
-              </span>
-            )}
-            {tab === "Refund Requests" && (
-              <span className="ml-2 px-2 py-0.5 text-xs bg-orange-100 text-orange-800 rounded-full">
-                {transformedRefundRequests.length}
-              </span>
-            )}
+            {tab === "Team Fees" && <span className="ml-2 px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded-full">{transformedPayments.filter((p) => p.type === "TEAM_FEE").length}</span>}
+            {tab === "Tournament Fees" && <span className="ml-2 px-2 py-0.5 text-xs bg-purple-100 text-purple-800 rounded-full">{transformedPayments.filter((p) => p.type === "TOURNAMENT_FEE").length}</span>}
+            {tab === "Refund Requests" && <span className="ml-2 px-2 py-0.5 text-xs bg-orange-100 text-orange-800 rounded-full">{transformedRefundRequests.length}</span>}
           </button>
         ))}
       </div>
 
-      {/* Content */}
       <div className="px-4 py-4">
         {activeTab === "Refund Requests" ? (
           transformedRefundRequests.length === 0 ? (
             <div className="text-center py-12">
-              <div className="mx-auto w-24 h-24 text-gray-300 mb-4">
-                <DollarSign className="w-full h-full" />
-              </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                No refund requests found
-              </h3>
-              <p className="text-gray-500 max-w-md mx-auto">
-                No refund requests are currently pending or match your search criteria.
-              </p>
+              <div className="mx-auto w-24 h-24 text-gray-300 mb-4"><DollarSign className="w-full h-full" /></div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No refund requests found</h3>
+              <p className="text-gray-500 max-w-md mx-auto">No refund requests are currently pending or match your search criteria.</p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {transformedRefundRequests.map(renderRefundRequestCard)}
-            </div>
+            <div className="space-y-4">{transformedRefundRequests.map(renderRefundRequestCard)}</div>
           )
         ) : Object.keys(groupedPayments).length === 0 ? (
           <div className="text-center py-12">
-            <div className="mx-auto w-24 h-24 text-gray-300 mb-4">
-              <DollarSign className="w-full h-full" />
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              No payments found
-            </h3>
-            <p className="text-gray-500 max-w-md mx-auto">
-              No payments match your current filters or search criteria.
-            </p>
+            <div className="mx-auto w-24 h-24 text-gray-300 mb-4"><DollarSign className="w-full h-full" /></div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No payments found</h3>
+            <p className="text-gray-500 max-w-md mx-auto">No payments match your current filters or search criteria.</p>
           </div>
         ) : (
           <div className="space-y-6">
@@ -2039,9 +1136,7 @@ const Payments = () => {
                 {expandedGroups[group.id] && (
                   <div className="bg-gray-50 rounded-b-xl border border-t-0 border-gray-200 p-4">
                     {group.payments.map((payment) =>
-                      payment.type === "TEAM_FEE"
-                        ? renderTeamFeeCard(payment)
-                        : renderTournamentFeeCard(payment)
+                      payment.type === "TEAM_FEE" ? renderTeamFeeCard(payment) : renderTournamentFeeCard(payment)
                     )}
                   </div>
                 )}
