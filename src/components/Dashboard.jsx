@@ -300,7 +300,7 @@ const Dashboard = () => {
         </div>
 
         {/* Most Playable Days and Most Preferred Areas */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 ">
           {/* Most Playable Days */}
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
             <div className="flex items-center justify-between mb-6">
@@ -345,7 +345,7 @@ const Dashboard = () => {
           </div>
 
           {/* Most Preferred Areas */}
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 h-[600px] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center space-x-3">
                 <div className="p-2 bg-green-50 rounded-lg">

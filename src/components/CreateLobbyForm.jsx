@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronDown, Calendar, Clock, MapPin } from 'lucide-react';
 
 const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
@@ -31,28 +31,26 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
 
-  // Time format conversion function - 24h to 12h with AM/PM
+  // Tournament এর মতো useRef দিয়ে outside click handle
+  const locationInputRef = useRef(null);
+
+  // Time format conversion - 24h to 12h
   const formatTimeTo12Hour = (timeString) => {
     if (!timeString) return '';
-
     try {
       const [hours, minutes] = timeString.split(':');
       const hour = parseInt(hours, 10);
       const ampm = hour >= 12 ? 'PM' : 'AM';
       const twelveHour = hour % 12 || 12;
-
       return `${twelveHour}:${minutes} ${ampm}`;
     } catch (error) {
       return timeString;
     }
   };
 
-  // Convert date and time to ISO string for backend (date field)
   const formatDateToISO = (date, time) => {
     if (!date || !time) return '';
-
     try {
-      // Combine date and time and convert to ISO string
       const dateTime = new Date(`${date}T${time}`);
       return dateTime.toISOString();
     } catch (error) {
@@ -61,13 +59,12 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
     }
   };
 
-  // Get 12-hour format time for backend (time field)
   const get12HourTime = (timeString) => {
     if (!timeString) return '';
     return formatTimeTo12Hour(timeString);
   };
 
-  // Fetch teams from API
+  // Fetch teams
   useEffect(() => {
     const fetchTeams = async () => {
       try {
@@ -95,7 +92,21 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
     fetchTeams();
   }, []);
 
-  // Handle location search with YOUR BACKEND API
+  // Tournament এর মতো outside click দিয়ে suggestions বন্ধ করা
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (locationInputRef.current && !locationInputRef.current.contains(event.target)) {
+        setShowSuggestions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Handle location search
   const handleLocationSearch = async (query) => {
     setLocationSearch(query);
 
@@ -110,9 +121,7 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
         `https://api.toptopfootball.com/api/autocomplete?input=${encodeURIComponent(query)}`
       );
 
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
+      if (!response.ok) throw new Error('Network response was not ok');
 
       const data = await response.json();
       console.log('Backend API response:', data);
@@ -121,11 +130,9 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
         setLocationSuggestions(data.predictions);
         setShowSuggestions(true);
       } else if (data.suggestions && Array.isArray(data.suggestions)) {
-        // Jodi different structure hoy
         setLocationSuggestions(data.suggestions);
         setShowSuggestions(true);
       } else {
-        console.log('No suggestions found');
         setLocationSuggestions([]);
         setShowSuggestions(false);
       }
@@ -136,59 +143,55 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
     }
   };
 
-  // Handle location selection with YOUR BACKEND API
-  const handleLocationSelect = async (placeId) => {
+  // আপডেটেড handleLocationSelect - suggestion এর original নাম ই রাখবে
+  const handleLocationSelect = async (suggestion) => {
     try {
-      // Apnar backend place details API use korchi
+      // suggestion থেকে আসল নামটা সংরক্ষণ করছি
+      const originalDescription = suggestion.description || suggestion.name || "Selected Location";
+
+      // প্রথমে ইনপুট ফিল্ডে আসল suggestion টেক্সট দেখাবো
+      setLocationSearch(originalDescription);
+
       const response = await fetch(
-        `https://api.toptopfootball.com/api/place-details?place_id=${placeId}`
+        `https://api.toptopfootball.com/api/place-details?place_id=${suggestion.place_id}`
       );
 
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
+      if (!response.ok) throw new Error('Network response was not ok');
 
       const data = await response.json();
       console.log('Place details response:', data);
 
-      // Different possible response structures handle korchi
-      if (data) {
-        // Google API structure
-        const { lat, lng, address } = data;
+      let lat, lng;
 
-        setFormData(prev => ({
-          ...prev,
-          location: { lat, lng, address }
-        }));
-        setLocationSearch(data.address);
-        setShowSuggestions(false);
-      } else if (data.location && data.location.lat && data.location.lng) {
-        // Custom backend structure
-        const { lat, lng } = data.location;
-        setFormData(prev => ({
-          ...prev,
-          location: { lat, lng, address: data.name || data.address || "Selected Location" }
-        }));
-        setLocationSearch(data.name || data.address || "Selected Location");
-        setShowSuggestions(false);
-      } else if (data.lat && data.lng) {
-        // Simple lat/lng structure
-        const { lat, lng } = data;
-        setFormData(prev => ({
-          ...prev,
-          location: { lat, lng, address: data.formatted_address || data.name || "Selected Location" }
-        }));
-        setLocationSearch(data.formatted_address || data.name || "Selected Location");
-        setShowSuggestions(false);
+      if (data.lat && data.lng) {
+        lat = data.lat;
+        lng = data.lng;
+      } else if (data.location?.lat && data.location?.lng) {
+        lat = data.location.lat;
+        lng = data.location.lng;
       } else {
         console.error('Unexpected place details structure:', data);
+        return;
       }
+
+      setFormData(prev => ({
+        ...prev,
+        location: {
+          lat: parseFloat(lat),
+          lng: parseFloat(lng),
+          address: originalDescription  // suggestion এর original নাম স্টোর করছি
+        }
+      }));
+
+      // ইনপুট ফিল্ড আপডেট করছি suggestion এর আসল নাম দিয়ে
+      setLocationSearch(originalDescription);
+      setShowSuggestions(false);
+
     } catch (error) {
       console.error('Error fetching place details:', error);
     }
   };
 
-  // Handle form data changes
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
       ...prev,
@@ -196,7 +199,6 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
     }));
   };
 
-  // Handle team selection
   const handleTeamSelect = (teamField, teamId) => {
     setFormData(prev => ({
       ...prev,
@@ -204,62 +206,47 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
     }));
   };
 
-  // Validate form data
   const validateForm = () => {
     if (!formData.title.trim()) {
       setMessage({ type: 'error', text: 'Please enter a lobby title' });
       return false;
     }
-
     if (!formData.date) {
       setMessage({ type: 'error', text: 'Please select a date' });
       return false;
     }
-
     if (!formData.time) {
       setMessage({ type: 'error', text: 'Please select a time' });
       return false;
     }
-
     if (formData.location.lat === 0 && formData.location.lng === 0) {
       setMessage({ type: 'error', text: 'Please select a location' });
       return false;
     }
-
     if (formData.matchType === 'teams') {
       if (!formData.team1.teamId || !formData.team2.teamId) {
         setMessage({ type: 'error', text: 'Please select both teams for team match' });
         return false;
       }
-
       if (formData.team1.teamId === formData.team2.teamId) {
         setMessage({ type: 'error', text: 'Please select different teams' });
         return false;
       }
     }
-
     if (formData.matchPrivacy === 'private' && !formData.privateKey.trim()) {
       setMessage({ type: 'error', text: 'Please enter a private key for private match' });
       return false;
     }
-
     return true;
   };
 
-  // Handle form submission
   const handleSubmit = async () => {
-    // Clear previous messages
     setMessage({ type: '', text: '' });
-
-    // Validate form
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     setSubmitting(true);
 
     try {
-      // Prepare data for backend with the specific format you need
       const submitData = {
         title: formData.title,
         matchTime: formData.matchTime,
@@ -278,7 +265,6 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
         privateKey: formData.privateKey
       };
 
-      // Add team data only if match type is teams
       if (formData.matchType === 'teams') {
         submitData.team1 = formData.team1;
         submitData.team2 = formData.team2;
@@ -304,12 +290,8 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
           text: result.message || 'Lobby created successfully!'
         });
 
-        // Call the refresh function from parent
-        if (onLobbyCreated) {
-          onLobbyCreated();
-        }
+        if (onLobbyCreated) onLobbyCreated();
 
-        // Close form after success
         setTimeout(() => {
           onClose();
         }, 2000);
@@ -332,25 +314,20 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
 
   const ToggleSwitch = ({ isOn, onToggle }) => (
     <div
-      className={`w-12 h-6 rounded-full cursor-pointer transition-colors duration-300 ${isOn ? 'bg-green-400' : 'bg-gray-200'
-        }`}
+      className={`w-12 h-6 rounded-full cursor-pointer transition-colors duration-300 ${isOn ? 'bg-green-400' : 'bg-gray-200'}`}
       onClick={onToggle}
     >
       <div
-        className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform duration-300 mt-0.5 ${isOn ? 'translate-x-6 ml-0.5' : 'translate-x-0 ml-0.5'
-          }`}
+        className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform duration-300 mt-0.5 ${isOn ? 'translate-x-6 ml-0.5' : 'translate-x-0 ml-0.5'}`}
       />
     </div>
   );
 
-  // Get selected team details for display - with safe access
   const getSelectedTeam = (teamId) => {
     if (!teamId || !Array.isArray(teams)) return null;
-    const team = teams.find(team => team._id === teamId);
-    return team || null;
+    return teams.find(team => team._id === teamId) || null;
   };
 
-  // Team size options with display format
   const teamSizeOptions = [
     { display: "7v7", value: 7 },
     { display: "8v8", value: 8 },
@@ -407,7 +384,7 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
           />
         </div>
 
-        {/* Team Selection - Only show when matchType is teams */}
+        {/* Team Selection */}
         {formData.matchType === 'teams' && (
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -434,9 +411,7 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
                       src={getSelectedTeam(formData.team1.teamId).image}
                       alt={getSelectedTeam(formData.team1.teamId).teamName || 'Team 1'}
                       className="w-6 h-6 rounded-full mr-2"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                      }}
+                      onError={(e) => { e.target.style.display = 'none'; }}
                     />
                   )}
                   <span className="text-sm text-gray-600">
@@ -469,9 +444,7 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
                       src={getSelectedTeam(formData.team2.teamId).image}
                       alt={getSelectedTeam(formData.team2.teamId).teamName || 'Team 2'}
                       className="w-6 h-6 rounded-full mr-2"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                      }}
+                      onError={(e) => { e.target.style.display = 'none'; }}
                     />
                   )}
                   <span className="text-sm text-gray-600">
@@ -533,7 +506,7 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
           </div>
         </div>
 
-        {/* Private Key Input - Only show when privacy is private */}
+        {/* Private Key */}
         {formData.matchPrivacy === 'private' && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Private Key *</label>
@@ -589,7 +562,6 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
               />
               <Clock className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             </div>
-            {/* AM/PM Display */}
             {formData.time && (
               <div className="mt-2 text-sm text-green-600 font-medium">
                 Selected Time: {formatTimeTo12Hour(formData.time)}
@@ -609,48 +581,64 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
           </div>
         )}
 
-        {/* Location with YOUR BACKEND API Search */}
-        <div>
+        {/* Location - Tournament এর মতো useRef + button + onMouseDown prevent */}
+        <div ref={locationInputRef}>
           <label className="block text-sm font-medium text-gray-700 mb-2">Location *</label>
           <div className="relative">
             <input
               type="text"
-              placeholder="Search location..."
+              placeholder="Search location (minimum 3 characters)..."
               className="w-full p-3 pr-10 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent text-gray-500"
               value={locationSearch}
               onChange={(e) => handleLocationSearch(e.target.value)}
-              onFocus={() => locationSearch.length >= 3 && setShowSuggestions(true)}
-              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+              onFocus={() => {
+                if (locationSearch.length >= 3 && locationSuggestions.length > 0) {
+                  setShowSuggestions(true);
+                }
+              }}
             />
             <MapPin className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
 
-            {/* Location Suggestions */}
+            {/* Tournament এর মতো button দিয়ে suggestion render */}
             {showSuggestions && locationSuggestions.length > 0 && (
               <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                 {locationSuggestions.map((suggestion) => (
-                  <div
+                  <button
                     key={suggestion.place_id}
-                    className="p-3 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
-                    onMouseDown={(e) => e.preventDefault()} // Prevents immediate blur
-                    onClick={() => handleLocationSelect(suggestion.place_id)}
+                    type="button"
+                    className="w-full text-left p-3 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => handleLocationSelect(suggestion)}
                   >
                     <div className="text-sm text-gray-700">
                       {suggestion.description || suggestion.name || 'Location'}
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
           </div>
+
+          {/* Selected location display */}
           {formData.location.lat !== 0 && formData.location.lng !== 0 && (
-            <div className="mt-2 text-sm text-gray-600">
-              Selected Location: Lat: {formData.location.lat.toFixed(6)}, Lng: {formData.location.lng.toFixed(6)}
-              {formData.location.address && ` - ${formData.location.address}`}
+            <div className="mt-2 p-2 bg-gray-50 rounded-lg">
+              <div className="text-sm font-medium text-gray-700">✅ Selected Location:</div>
+              <div className="text-sm text-gray-600 mt-1">{formData.location.address}</div>
+              <div className="text-xs text-gray-500 mt-1">
+                Coordinates: {formData.location.lat.toFixed(6)}, {formData.location.lng.toFixed(6)}
+              </div>
             </div>
+          )}
+
+          {/* Location required warning */}
+          {(formData.location.lat === 0 && formData.location.lng === 0) && (
+            <p className="mt-1 text-sm text-red-600">
+              Please select a valid location from the search results
+            </p>
           )}
         </div>
 
-        {/* Team Size Format - UPDATED */}
+        {/* Team Size */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Team Size (Format)</label>
           <div className="grid grid-cols-5 gap-2">
@@ -712,7 +700,6 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
               onToggle={() => handleInputChange('goalkeeper', !formData.goalkeeper)}
             />
           </div>
-
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-gray-700">Referee</span>
             <ToggleSwitch
@@ -720,7 +707,6 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
               onToggle={() => handleInputChange('referee', !formData.referee)}
             />
           </div>
-
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-gray-700">Camera</span>
             <ToggleSwitch
