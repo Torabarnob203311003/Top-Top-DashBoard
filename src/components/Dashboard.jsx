@@ -8,11 +8,20 @@ const Dashboard = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('This week');
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const getToken = () => localStorage.getItem("accessToken");
 
   useEffect(() => {
+
+    const token = getToken();
+ 
     const fetchDashboardData = async () => {
       try {
-        const response = await fetch('https://api.toptopfootball.com/api/v1/admin/admin-data');
+        const response = await fetch('https://api.toptopfootball.com/api/v1/admin/admin-data',{
+
+          method: "GET",
+          headers: { Authorization: `${token}`, "Content-Type": "application/json" }
+        
+        });
         const result = await response.json();
 
         if (result.success) {
