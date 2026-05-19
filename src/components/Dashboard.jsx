@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars */
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { TrendingUp, Package, Users, Activity, Calendar, MapPin, DollarSign, Globe } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 
@@ -8,34 +8,87 @@ const Dashboard = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('This week');
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
   const getToken = () => localStorage.getItem("accessToken");
 
+  // Function to handle logout and clear storage
+  const handleUnauthorized = () => {
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("user"); 
+    sessionStorage.clear(); 
+    navigate('/login', { replace: true });
+  };
+
   useEffect(() => {
-
-    const token = getToken();
- 
     const fetchDashboardData = async () => {
-      try {
-        const response = await fetch('https://api.toptopfootball.com/api/v1/admin/admin-data',{
+      const token = getToken();
 
+      // If no token exists, redirect to login
+      if (!token) {
+        handleUnauthorized();
+        return;
+      }
+
+      try {
+        const response = await fetch('https://api.toptopfootball.com/api/v1/admin/admin-data', {
           method: "GET",
-          headers: { Authorization: `${token}`, "Content-Type": "application/json" }
-        
+          headers: {
+            Authorization: `${token}`,
+            "Content-Type": "application/json"
+          }
         });
+
+        // Handle different response statuses
+        if (response.status === 401 || response.status === 403) {
+          // Unauthorized - token expired or invalid
+          console.error('Authentication failed');
+          handleUnauthorized();
+          return;
+        }
+
+        if (response.status === 404) {
+          // Data not found (database deleted or endpoint missing)
+          console.error('Data not found - possible database issue');
+          handleUnauthorized();
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
         const result = await response.json();
 
         if (result.success) {
           setDashboardData(result.data);
+        } else {
+          // API returned success: false
+          console.error('API returned error:', result.message);
+          if (result.message?.toLowerCase().includes('unauthorized') ||
+            result.message?.toLowerCase().includes('token')) {
+            handleUnauthorized();
+          }
         }
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
+
+        // Check if it's a network error or CORS issue
+        if (error.message === 'Failed to fetch' || error.name === 'TypeError') {
+          console.error('Network error - server might be down');
+          // Optional: Show user friendly message
+          // You might want to keep the user on dashboard but show error
+        }
+
+        // For critical errors, you might still want to redirect
+        // handleUnauthorized(); // Uncomment if you want to redirect on any error
       } finally {
         setLoading(false);
       }
     };
 
     fetchDashboardData();
-  }, []);
+  }, [navigate]);
 
   // Format revenue bar graph data for the chart
   const formatChartData = () => {
@@ -91,7 +144,7 @@ const Dashboard = () => {
 
   const StatCard = ({ icon: Icon, title, value, change, changeType, bgColor, iconColor, description }) => (
     <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-300">
-      <div className="flex  items-start justify-between">
+      <div className="flex items-start justify-between">
         <div className={`p-3 rounded-lg ${bgColor} mb-4`}>
           <Icon className={`w-6 h-6 ${iconColor}`} />
         </div>
@@ -121,8 +174,14 @@ const Dashboard = () => {
 
   if (!dashboardData) {
     return (
-      <div className="min-h-screen p-6 flex items-center justify-center">
+      <div className="min-h-screen p-6 flex flex-col items-center justify-center space-y-4">
         <div className="text-lg text-red-600">Failed to load dashboard data</div>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          Retry
+        </button>
       </div>
     );
   }
@@ -163,7 +222,7 @@ const Dashboard = () => {
             <h1 className="text-2xl font-bold text-gray-900">Dashboard Overview</h1>
             <p className="text-gray-600">Welcome to your sports management dashboard</p>
           </div>
-          <div className="flex items-center hidden   space-x-4">
+          <div className="flex items-center hidden space-x-4">
             <select
               value={selectedPeriod}
               onChange={(e) => setSelectedPeriod(e.target.value)}
@@ -182,7 +241,6 @@ const Dashboard = () => {
             icon={DollarSign}
             title="Total Revenue"
             value={`${dashboardData.totalRevenue?.toLocaleString() || '0'} AED`}
-            // change={`${dashboardData.revenueGrowth || 0}%`}
             changeType={dashboardData.revenueGrowth > 0 ? 'positive' : dashboardData.revenueGrowth < 0 ? 'negative' : 'neutral'}
             bgColor="bg-green-50"
             iconColor="text-green-600"
@@ -192,7 +250,6 @@ const Dashboard = () => {
             icon={Package}
             title="Active Lobbies"
             value={dashboardData.lobbyCount?.toString() || '0'}
-            // change={`${dashboardData.lobbyGrowth || 0}%`}
             changeType={dashboardData.lobbyGrowth > 0 ? 'positive' : dashboardData.lobbyGrowth < 0 ? 'negative' : 'neutral'}
             bgColor="bg-orange-50"
             iconColor="text-orange-600"
@@ -202,7 +259,6 @@ const Dashboard = () => {
             icon={Users}
             title="Matches Played"
             value={dashboardData.totalMatches?.toString() || '0'}
-            // change={`${dashboardData.matchGrowth || 0}%`}
             changeType={dashboardData.matchGrowth > 0 ? 'positive' : dashboardData.matchGrowth < 0 ? 'negative' : 'neutral'}
             bgColor="bg-purple-50"
             iconColor="text-purple-600"
@@ -212,7 +268,6 @@ const Dashboard = () => {
             icon={Activity}
             title="Active Players"
             value={dashboardData.activePlayers?.toString() || '0'}
-            // change={`${dashboardData.playerGrowth || 0}%`}
             changeType={dashboardData.playerGrowth > 0 ? 'positive' : dashboardData.playerGrowth < 0 ? 'negative' : 'neutral'}
             bgColor="bg-blue-50"
             iconColor="text-blue-600"
@@ -309,7 +364,7 @@ const Dashboard = () => {
         </div>
 
         {/* Most Playable Days and Most Preferred Areas */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 ">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Most Playable Days */}
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
             <div className="flex items-center justify-between mb-6">
