@@ -34,6 +34,20 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
   // Tournament এর মতো useRef দিয়ে outside click handle
   const locationInputRef = useRef(null);
 
+  // Helper function to get auth token
+  const getAuthToken = () => {
+    return localStorage.getItem('accessToken');
+  };
+
+  // Helper function to create headers with token
+  const getHeaders = () => {
+    const token = getAuthToken();
+    return {
+      'Content-Type': 'application/json',
+      ...(token && { 'Authorization': token })
+    };
+  };
+
   // Time format conversion - 24h to 12h
   const formatTimeTo12Hour = (timeString) => {
     if (!timeString) return '';
@@ -64,12 +78,15 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
     return formatTimeTo12Hour(timeString);
   };
 
-  // Fetch teams
+  // Fetch teams with token
   useEffect(() => {
     const fetchTeams = async () => {
       try {
         setLoading(true);
-        const response = await fetch('https://api.toptopfootball.com/api/v1/team/all-teams');
+        const response = await fetch('https://api.toptopfootball.com/api/v1/team/all-teams', {
+          method: 'GET',
+          headers: getHeaders()
+        });
         const data = await response.json();
 
         if (Array.isArray(data)) {
@@ -106,7 +123,7 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
     };
   }, []);
 
-  // Handle location search
+  // Handle location search with token
   const handleLocationSearch = async (query) => {
     setLocationSearch(query);
 
@@ -118,7 +135,11 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
 
     try {
       const response = await fetch(
-        `https://api.toptopfootball.com/api/autocomplete?input=${encodeURIComponent(query)}`
+        `https://api.toptopfootball.com/api/autocomplete?input=${encodeURIComponent(query)}`,
+        {
+          method: 'GET',
+          headers: getHeaders()
+        }
       );
 
       if (!response.ok) throw new Error('Network response was not ok');
@@ -153,7 +174,11 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
       setLocationSearch(originalDescription);
 
       const response = await fetch(
-        `https://api.toptopfootball.com/api/place-details?place_id=${suggestion.place_id}`
+        `https://api.toptopfootball.com/api/place-details?place_id=${suggestion.place_id}`,
+        {
+          method: 'GET',
+          headers: getHeaders()
+        }
       );
 
       if (!response.ok) throw new Error('Network response was not ok');
@@ -274,10 +299,7 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
 
       const response = await fetch('https://api.toptopfootball.com/api/v1/lobby/create-match', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `${localStorage.getItem('accessToken')}`
-        },
+        headers: getHeaders(),
         body: JSON.stringify(submitData)
       });
 

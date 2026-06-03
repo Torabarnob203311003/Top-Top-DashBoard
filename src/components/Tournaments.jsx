@@ -47,6 +47,15 @@ function Tournaments() {
     const token = getAuthToken();
     return {
       'Authorization': token ? `${token}` : '',
+      'Content-Type': 'application/json',
+    };
+  };
+
+  // Get headers for GET requests (without Content-Type)
+  const getAuthHeadersForGet = () => {
+    const token = getAuthToken();
+    return {
+      'Authorization': token ? `${token}` : '',
     };
   };
 
@@ -54,7 +63,10 @@ function Tournaments() {
   const fetchTournaments = async () => {
     try {
       setLoading(true);
-      const response = await fetch('https://api.toptopfootball.com/api/v1/tournament/all-tournament');
+      const response = await fetch('https://api.toptopfootball.com/api/v1/tournament/all-tournament', {
+        method: 'GET',
+        headers: getAuthHeadersForGet()
+      });
       const result = await response.json();
 
       if (result.success) {
@@ -178,7 +190,7 @@ function Tournaments() {
     }
   };
 
-  // Handle location search - FIXED
+  // Handle location search - WITH TOKEN
   const handleLocationSearch = async (query) => {
     setLocationSearch(query);
 
@@ -190,7 +202,11 @@ function Tournaments() {
 
     try {
       const response = await fetch(
-        `https://api.toptopfootball.com/api/autocomplete?input=${encodeURIComponent(query)}`
+        `https://api.toptopfootball.com/api/autocomplete?input=${encodeURIComponent(query)}`,
+        {
+          method: 'GET',
+          headers: getAuthHeadersForGet()
+        }
       );
 
       if (!response.ok) {
@@ -213,16 +229,20 @@ function Tournaments() {
     }
   };
 
-  // Handle location selection - FIXED VERSION
+  // Handle location selection - WITH TOKEN
   const handleLocationSelect = async (suggestion) => {
     try {
       // First, set the display text immediately
       const displayText = suggestion.description || suggestion.name || "Selected Location";
       setLocationSearch(displayText);
 
-      // Then fetch the details
+      // Then fetch the details with token
       const response = await fetch(
-        `https://api.toptopfootball.com/api/place-details?place_id=${suggestion.place_id}`
+        `https://api.toptopfootball.com/api/place-details?place_id=${suggestion.place_id}`,
+        {
+          method: 'GET',
+          headers: getAuthHeadersForGet()
+        }
       );
 
       if (!response.ok) {
@@ -910,8 +930,8 @@ function Tournaments() {
                   onClick={() => deleteTournament(showDeleteConfirm)}
                   disabled={deletingTournament}
                   className={`px-6 py-2 rounded-lg font-medium text-white transition-colors ${deletingTournament
-                      ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-red-500 hover:bg-red-600'
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-red-500 hover:bg-red-600'
                     }`}
                 >
                   {deletingTournament ? (

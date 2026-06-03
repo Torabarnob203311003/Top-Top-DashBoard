@@ -534,7 +534,7 @@ const Payments = () => {
     return filtered;
   }, [transformedPayments, transformedRefundRequests, activeTab, searchTerm, filters]);
 
-  // ✅ FIXED: Set এর বদলে count object ব্যবহার করছি
+  // ✅ Group payments with proper total calculations - ONLY 'paid' status counts as successful
   const groupedPayments = useMemo(() => {
     if (activeTab === "Refund Requests") return {};
 
@@ -549,8 +549,9 @@ const Payments = () => {
           type: payment.groupType,
           payments: [],
           totalAmount: 0,
+          totalPaidAmount: 0, // ✅ Only 'paid' status amounts
+          totalFailedAmount: 0, // ✅ Only 'failed' amounts
           paymentCount: 0,
-          // ✅ Set এর বদলে সরাসরি count রাখছি
           statusCounts: { paid: 0, success: 0, pending: 0, failed: 0 },
           methods: new Set(),
         };
@@ -560,7 +561,17 @@ const Payments = () => {
       groups[groupId].totalAmount += payment.amount;
       groups[groupId].paymentCount++;
 
-      // ✅ প্রতিটা payment এর status সঠিকভাবে count হচ্ছে
+      // ✅ Calculate paid amount (ONLY for 'paid' status - NOT including 'success')
+      if (payment.status === 'paid') {
+        groups[groupId].totalPaidAmount += payment.amount;
+      }
+
+      // ✅ Calculate failed amount
+      if (payment.status === 'failed') {
+        groups[groupId].totalFailedAmount += payment.amount;
+      }
+
+      // ✅ Count statuses
       const s = payment.status;
       if (groups[groupId].statusCounts[s] !== undefined) {
         groups[groupId].statusCounts[s]++;
@@ -571,6 +582,29 @@ const Payments = () => {
 
     return groups;
   }, [filteredPayments, activeTab]);
+
+  // ✅ Calculate overall totals across all groups - ONLY 'paid' status counts
+  const overallTotals = useMemo(() => {
+    const totals = {
+      totalPaidAmount: 0,
+      totalFailedAmount: 0,
+      totalAmount: 0,
+      paidCount: 0,
+      failedCount: 0,
+      pendingCount: 0,
+    };
+
+    Object.values(groupedPayments).forEach((group) => {
+      totals.totalPaidAmount += group.totalPaidAmount;
+      totals.totalFailedAmount += group.totalFailedAmount;
+      totals.totalAmount += group.totalAmount;
+      totals.paidCount += group.statusCounts.paid || 0;
+      totals.failedCount += group.statusCounts.failed || 0;
+      totals.pendingCount += group.statusCounts.pending || 0;
+    });
+
+    return totals;
+  }, [groupedPayments]);
 
   const availablePositions = useMemo(() => {
     const positions = new Set();
@@ -630,7 +664,7 @@ const Payments = () => {
     );
   }
 
-  // ✅ FIXED GroupHeader — সরাসরি group.statusCounts থেকে নিচ্ছে
+  // ✅ Updated GroupHeader with paid and failed totals
   const GroupHeader = ({ group }) => {
     const isExpanded = expandedGroups[group.id];
     const { paid, success, pending, failed } = group.statusCounts;
@@ -649,7 +683,17 @@ const Payments = () => {
                 <span className="text-sm text-gray-600">
                   {group.paymentCount} payment{group.paymentCount !== 1 ? "s" : ""}
                 </span>
+                {/* ✅ Show only PAID amount (only 'paid' status) */}
                 <span className="text-sm font-medium text-green-600">
+                  Received: {group.totalPaidAmount} AED
+                </span>
+                {/* ✅ Show FAILED amount */}
+                {group.totalFailedAmount > 0 && (
+                  <span className="text-sm font-medium text-red-600">
+                    Failed: {group.totalFailedAmount} AED
+                  </span>
+                )}
+                <span className="text-sm text-gray-500">
                   Total: {group.totalAmount} AED
                 </span>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -1110,6 +1154,63 @@ const Payments = () => {
           </button>
         ))}
       </div>
+
+      {/* ✅ Summary Cards - Show overall totals (ONLY 'paid' status counts as successful) */}
+      {activeTab !== "Refund Requests" && Object.keys(groupedPayments).length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-white border-b">
+          <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-green-600 font-medium">Total Received</p>
+                <p className="text-2xl font-bold text-green-700">{overallTotals.totalPaidAmount} AED</p>
+              </div>
+              <div className="p-3 bg-green-100 rounded-full">
+                <CheckCircle className="w-6 h-6 text-green-600" />
+              </div>
+            </div>
+            <p className="text-xs text-green-600 mt-2">From {overallTotals.paidCount} paid payments</p>
+          </div>
+
+          <div className="bg-red-50 rounded-lg p-4 border border-red-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-red-600 font-medium">Total Failed</p>
+                <p className="text-2xl font-bold text-red-700">{overallTotals.totalFailedAmount} AED</p>
+              </div>
+              <div className="p-3 bg-red-100 rounded-full">
+                <XCircle className="w-6 h-6 text-red-600" />
+              </div>
+            </div>
+            <p className="text-xs text-red-600 mt-2">From {overallTotals.failedCount} failed payments</p>
+          </div>
+
+          <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-yellow-600 font-medium">Pending Amount</p>
+                <p className="text-2xl font-bold text-yellow-700">{overallTotals.totalAmount - overallTotals.totalPaidAmount - overallTotals.totalFailedAmount} AED</p>
+              </div>
+              <div className="p-3 bg-yellow-100 rounded-full">
+                <Clock className="w-6 h-6 text-yellow-600" />
+              </div>
+            </div>
+            <p className="text-xs text-yellow-600 mt-2">From {overallTotals.pendingCount} pending payments</p>
+          </div>
+
+          <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-blue-600 font-medium">Total Amount</p>
+                <p className="text-2xl font-bold text-blue-700">{overallTotals.totalAmount} AED</p>
+              </div>
+              <div className="p-3 bg-blue-100 rounded-full">
+                <DollarSign className="w-6 h-6 text-blue-600" />
+              </div>
+            </div>
+            <p className="text-xs text-blue-600 mt-2">Across all payment types</p>
+          </div>
+        </div>
+      )}
 
       <div className="px-4 py-4">
         {activeTab === "Refund Requests" ? (
