@@ -72,7 +72,7 @@ const Payments = () => {
     if (!token) { toast.error("Please login to view organizers"); return; }
     try {
       setLoadingOrganizers(true);
-      const response = await fetch("https://api.toptopfootball.com/api/v1/auth/all-player", {
+      const response = await fetch("/api/v1/auth/all-player", {
         headers: { Authorization: token, "Content-Type": "application/json" },
       });
       if (!response.ok) {
@@ -97,7 +97,7 @@ const Payments = () => {
     if (!token) { toast.error("Please login to view payments"); setLoading(false); return; }
     try {
       setLoading(true);
-      const response = await fetch("https://api.toptopfootball.com/api/v1/payment/all-payment", {
+      const response = await fetch("/api/v1/payment/all-payment", {
         method: "GET",
         headers: { Authorization: `${token}`, "Content-Type": "application/json" },
       });
@@ -119,7 +119,7 @@ const Payments = () => {
     if (!token) { toast.error("Please login to view refund requests"); return; }
     try {
       setRefundLoading(true);
-      const response = await fetch("https://api.toptopfootball.com/api/v1/refund/all-refund-request", {
+      const response = await fetch("/api/v1/refund/all-refund-request", {
         method: "GET",
         headers: { Authorization: `${token}`, "Content-Type": "application/json" },
       });
@@ -144,17 +144,17 @@ const Payments = () => {
       setActionLoading((prev) => ({ ...prev, [actionKey]: true }));
       let response;
       if (newStatus === "success") {
-        response = await fetch(`https://api.toptopfootball.com/api/v1/payment/payment-success?paymentId=${paymentId}`, {
+        response = await fetch(`/api/v1/payment/payment-success?paymentId=${paymentId}`, {
           method: "GET",
           headers: { Authorization: `${token}`, "Content-Type": "application/json" },
         });
       } else if (newStatus === "paid") {
-        response = await fetch(`https://api.toptopfootball.com/api/v1/payment/payment-paid?paymentId=${paymentId}`, {
+        response = await fetch(`/api/v1/payment/payment-paid?paymentId=${paymentId}`, {
           method: "PATCH",
           headers: { Authorization: `${token}`, "Content-Type": "application/json" },
         });
       } else {
-        response = await fetch(`https://api.toptopfootball.com/api/v1/payment/payment-cancel?paymentId=${paymentId}`, {
+        response = await fetch(`/api/v1/payment/payment-cancel?paymentId=${paymentId}`, {
           method: "GET",
           headers: { Authorization: `${token}`, "Content-Type": "application/json" },
         });
@@ -181,7 +181,7 @@ const Payments = () => {
       setActionLoading((prev) => ({ ...prev, [actionKey]: true }));
       const requestBody = { lobbyId: refundRequest.lobbyId?._id, playerId: refundRequest.playerId?._id };
       if (!requestBody.lobbyId || !requestBody.playerId) { toast.error("Missing required data for refund approval"); return; }
-      const response = await fetch("https://api.toptopfootball.com/api/v1/refund/accept-refund-request", {
+      const response = await fetch("/api/v1/refund/accept-refund-request", {
         method: "POST",
         headers: { Authorization: `${token}`, "Content-Type": "application/json" },
         body: JSON.stringify(requestBody),
@@ -204,7 +204,7 @@ const Payments = () => {
       setActionLoading((prev) => ({ ...prev, [actionKey]: true }));
       const requestBody = { lobbyId: refundRequest.lobbyId?._id, playerId: refundRequest.playerId?._id };
       if (!requestBody.lobbyId || !requestBody.playerId) { toast.error("Missing required data for refund rejection"); return; }
-      const response = await fetch("https://api.toptopfootball.com/api/v1/refund/reject-refund-request", {
+      const response = await fetch("/api/v1/refund/reject-refund-request", {
         method: "POST",
         headers: { Authorization: `${token}`, "Content-Type": "application/json" },
         body: JSON.stringify(requestBody),

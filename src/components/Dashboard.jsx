@@ -31,7 +31,7 @@ const Dashboard = () => {
       }
 
       try {
-        const response = await fetch('https://api.toptopfootball.com/api/v1/admin/admin-data', {
+        const response = await fetch('/api/v1/admin/admin-data', {
           method: "GET",
           headers: {
             Authorization: `${token}`,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ChevronLeft, Upload, X, Loader } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
@@ -7,6 +7,7 @@ function AddOrganizer({ onClose, onOrganizerAdded }) {
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [countries, setCountries] = useState([]);
 
   const {
     register,
@@ -17,6 +18,19 @@ function AddOrganizer({ onClose, onOrganizerAdded }) {
   } = useForm();
 
   const selectedNationality = watch('nationality');
+
+  useEffect(() => {
+    const fetchCountries = async () => {
+      try {
+        const response = await fetch('/api/v1/countries');
+        const result = await response.json();
+        if (result.success) setCountries(result.data || []);
+      } catch (error) {
+        console.error('Failed to load countries:', error);
+      }
+    };
+    fetchCountries();
+  }, []);
 
   // All countries list (comprehensive)
   const countryList = [
@@ -111,7 +125,7 @@ function AddOrganizer({ onClose, onOrganizerAdded }) {
       formData.append('email', data.email);
       formData.append('password', data.password);
       formData.append('nationality', data.nationality); // Add nationality
-      formData.append('role', 'organizer');
+      formData.append('countryCode', data.countryCode || 'AE');
 
       // Append image if selected
       if (selectedImage) {
@@ -128,8 +142,12 @@ function AddOrganizer({ onClose, onOrganizerAdded }) {
         }
       }
 
-      const response = await fetch('https://api.toptopfootball.com/api/v1/auth/create-player', {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch('/api/v1/auth/create-organizer', {
         method: 'POST',
+        headers: {
+          ...(token && { Authorization: token }),
+        },
         body: formData
       });
 
@@ -328,6 +346,30 @@ function AddOrganizer({ onClose, onOrganizerAdded }) {
                 Selected: <span className="font-medium text-gray-800">{selectedNationality}</span>
               </span>
             </div>
+          )}
+        </div>
+
+        {/* App Country */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            App Country *
+          </label>
+          <select
+            {...register("countryCode", {
+              required: "App country is required"
+            })}
+            defaultValue="AE"
+            className={`w-full p-3 bg-white border rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent ${errors.countryCode ? 'border-red-500' : 'border-gray-200'
+              }`}
+          >
+            {(countries.length ? countries : [{ countryCode: 'AE', name: 'United Arab Emirates', currencyCode: 'AED' }]).map((country) => (
+              <option key={country.countryCode} value={country.countryCode}>
+                {country.name} ({country.countryCode} / {country.currencyCode})
+              </option>
+            ))}
+          </select>
+          {errors.countryCode && (
+            <p className="text-red-500 text-sm mt-1">{errors.countryCode.message}</p>
           )}
         </div>
 

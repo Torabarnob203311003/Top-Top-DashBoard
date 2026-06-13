@@ -9,16 +9,29 @@ function UserManagement() {
   const [actionLoading, setActionLoading] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
   const [positionFilter, setPositionFilter] = useState("all");
+  const [countryFilter, setCountryFilter] = useState("all");
+  const [countries, setCountries] = useState([]);
 
   // Fetch users from API
   useEffect(() => {
     fetchUsers();
+    fetchCountries();
   }, []);
+
+  const fetchCountries = async () => {
+    try {
+      const response = await fetch('/api/v1/countries');
+      const result = await response.json();
+      if (result.success) setCountries(result.data || []);
+    } catch (error) {
+      console.error('Error fetching countries:', error);
+    }
+  };
 
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch('https://api.toptopfootball.com/api/v1/auth/all-player', {
+      const response = await fetch('/api/v1/auth/all-player', {
         headers: {
           'Authorization': `${token}`,
           'Content-Type': 'application/json'
@@ -51,7 +64,7 @@ function UserManagement() {
       const token = localStorage.getItem('accessToken');
       const newStatus = currentStatus === 'active' ? 'block' : 'active';
 
-      const response = await fetch(`https://api.toptopfootball.com/api/v1/auth/update-status/${userId}`, {
+      const response = await fetch(`/api/v1/auth/update-status/${userId}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `${token}`,
@@ -95,7 +108,7 @@ function UserManagement() {
 
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`https://api.toptopfootball.com/api/v1/auth/delete-player/${userId}`, {
+      const response = await fetch(`/api/v1/auth/delete-player/${userId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `${token}`,
@@ -119,6 +132,31 @@ function UserManagement() {
     } catch (error) {
       console.error('Error deleting user:', error);
       toast.error('Failed to delete user');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleCountryUpdate = async (userId, countryCode) => {
+    setActionLoading(`country-${userId}`);
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`/api/v1/auth/users/${userId}/country`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ countryCode })
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'Failed to update country');
+      }
+      setUsers(users.map(user => user._id === userId ? { ...user, countryCode } : user));
+      toast.success('Country updated');
+    } catch (error) {
+      toast.error(error.message || 'Failed to update country');
     } finally {
       setActionLoading(null);
     }
@@ -180,8 +218,9 @@ function UserManagement() {
     const matchesPosition = positionFilter === "all" ||
       (user.position && Array.isArray(user.position) && user.position.includes(positionFilter)) ||
       user.matchPosition === positionFilter;
+    const matchesCountry = countryFilter === "all" || (user.countryCode || "AE") === countryFilter;
 
-    return matchesSearch && matchesPosition;
+    return matchesSearch && matchesPosition && matchesCountry;
   });
 
   // Get users by position for the counter
@@ -271,15 +310,29 @@ function UserManagement() {
                 </span>
               )}
             </button>
-            <div className="relative">
-              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search users..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none w-64"
-              />
+            <div className="flex items-center gap-3">
+              <select
+                value={countryFilter}
+                onChange={(e) => setCountryFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none bg-white"
+              >
+                <option value="all">All Countries</option>
+                {countries.map((country) => (
+                  <option key={country.countryCode} value={country.countryCode}>
+                    {country.name}
+                  </option>
+                ))}
+              </select>
+              <div className="relative">
+                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search users..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none w-64"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -382,6 +435,7 @@ function UserManagement() {
                 <th className="text-left py-3 px-6 font-medium text-gray-700">Phone</th>
                 <th className="text-left py-3 px-6 font-medium text-gray-700">Position</th>
                 <th className="text-left py-3 px-6 font-medium text-gray-700">nationality</th>
+                <th className="text-left py-3 px-6 font-medium text-gray-700">Country</th>
                 <th className="text-left py-3 px-6 font-medium text-gray-700">Role</th>
                 <th className="text-left py-3 px-6 font-medium text-gray-700">Status</th>
                 <th className="text-left py-3 px-6 font-medium text-gray-700">Actions</th>
@@ -418,6 +472,20 @@ function UserManagement() {
                     </span>
                   </td>
                   <td className="py-4 px-6 text-gray-600">{user.nationality}</td>
+                  <td className="py-4 px-6">
+                    <select
+                      value={user.countryCode || 'AE'}
+                      disabled={actionLoading === `country-${user._id}`}
+                      onChange={(e) => handleCountryUpdate(user._id, e.target.value)}
+                      className="px-2 py-1 border border-gray-300 rounded-lg text-sm bg-white"
+                    >
+                      {(countries.length ? countries : [{ countryCode: 'AE', name: 'United Arab Emirates' }]).map((country) => (
+                        <option key={country.countryCode} value={country.countryCode}>
+                          {country.countryCode}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
                   <td className="py-4 px-6">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getRoleColor(user.role)}`}>
                       {user.role}

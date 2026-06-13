@@ -2,9 +2,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronDown, Calendar, Clock, MapPin } from 'lucide-react';
 
-const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
+const API_BASE = '/api/v1';
+
+const CreateLobbyForm = ({ onClose, onLobbyCreated, defaultCountryCode = 'AE' }) => {
   const [formData, setFormData] = useState({
     title: "",
+    countryCode: defaultCountryCode,
     team1: { teamId: "" },
     team2: { teamId: "" },
     matchTime: "90 minutes",
@@ -24,6 +27,7 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
   });
 
   const [teams, setTeams] = useState([]);
+  const [countries, setCountries] = useState([]);
   const [loading, setLoading] = useState(false);
   const [locationSearch, setLocationSearch] = useState("");
   const [locationSuggestions, setLocationSuggestions] = useState([]);
@@ -78,12 +82,14 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
     return formatTimeTo12Hour(timeString);
   };
 
-  // Fetch teams with token
+  const selectedCountry = countries.find((country) => country.countryCode === formData.countryCode);
+
+  // Fetch teams and operating countries with token
   useEffect(() => {
     const fetchTeams = async () => {
       try {
         setLoading(true);
-        const response = await fetch('https://api.toptopfootball.com/api/v1/team/all-teams', {
+        const response = await fetch('/api/v1/team/all-teams', {
           method: 'GET',
           headers: getHeaders()
         });
@@ -106,7 +112,21 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
       }
     };
 
+    const fetchCountries = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/countries`, {
+          method: 'GET',
+          headers: getHeaders()
+        });
+        const result = await response.json();
+        if (result.success) setCountries(result.data || []);
+      } catch (error) {
+        console.error('Error fetching countries:', error);
+      }
+    };
+
     fetchTeams();
+    fetchCountries();
   }, []);
 
   // Tournament এর মতো outside click দিয়ে suggestions বন্ধ করা
@@ -135,7 +155,7 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
 
     try {
       const response = await fetch(
-        `https://api.toptopfootball.com/api/autocomplete?input=${encodeURIComponent(query)}`,
+        `/api/autocomplete?input=${encodeURIComponent(query)}&countryCode=${encodeURIComponent(formData.countryCode || 'AE')}`,
         {
           method: 'GET',
           headers: getHeaders()
@@ -174,7 +194,7 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
       setLocationSearch(originalDescription);
 
       const response = await fetch(
-        `https://api.toptopfootball.com/api/place-details?place_id=${suggestion.place_id}`,
+        `/api/place-details?place_id=${suggestion.place_id}`,
         {
           method: 'GET',
           headers: getHeaders()
@@ -222,6 +242,17 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
       ...prev,
       [field]: value
     }));
+  };
+
+  const handleCountryChange = (value) => {
+    setFormData(prev => ({
+      ...prev,
+      countryCode: value,
+      location: { lat: 0, lng: 0, address: "" }
+    }));
+    setLocationSearch("");
+    setLocationSuggestions([]);
+    setShowSuggestions(false);
   };
 
   const handleTeamSelect = (teamField, teamId) => {
@@ -274,6 +305,7 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
     try {
       const submitData = {
         title: formData.title,
+        countryCode: formData.countryCode || 'AE',
         matchTime: formData.matchTime,
         location: formData.location,
         price: Number(formData.price) || 0,
@@ -297,7 +329,7 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
 
       console.log('Submitting data to backend:', submitData);
 
-      const response = await fetch('https://api.toptopfootball.com/api/v1/lobby/create-match', {
+      const response = await fetch(`${API_BASE}/lobby/create-match-v2`, {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify(submitData)
@@ -404,6 +436,25 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
             value={formData.title}
             onChange={(e) => handleInputChange('title', e.target.value)}
           />
+        </div>
+
+        {/* App Country */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Country *</label>
+          <div className="relative">
+            <select
+              className="w-full p-3 border border-gray-200 rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent text-gray-700"
+              value={formData.countryCode}
+              onChange={(e) => handleCountryChange(e.target.value)}
+            >
+              {(countries.length ? countries : [{ countryCode: 'AE', name: 'United Arab Emirates', currencyCode: 'AED' }]).map((country) => (
+                <option key={country.countryCode} value={country.countryCode}>
+                  {country.name} ({country.countryCode} / {country.currencyCode || 'AED'})
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+          </div>
         </div>
 
         {/* Team Selection */}
@@ -685,7 +736,7 @@ const CreateLobbyForm = ({ onClose, onLobbyCreated }) => {
 
         {/* Price */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Price (AED)</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Price ({selectedCountry?.currencyCode || 'AED'})</label>
           <input
             type="number"
             placeholder="Enter match price"

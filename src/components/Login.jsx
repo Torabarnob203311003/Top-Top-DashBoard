@@ -19,7 +19,7 @@ function Login() {
     setLoading(true);
 
     try {
-      const response = await fetch("https://api.toptopfootball.com/api/v1/auth/login", {
+      const response = await fetch("/api/v1/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -148,10 +148,6 @@ function Login() {
                 placeholder="Enter your password"
                 {...register("password", {
                   required: "Password is required",
-                  minLength: {
-                    value: 6,
-                    message: "Password must be at least 6 characters",
-                  },
                 })}
               />
               <button

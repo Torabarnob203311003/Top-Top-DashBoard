@@ -30,16 +30,28 @@ const Organizers = () => {
   const [activeTab, setActiveTab] = useState('upcoming');
   const [assignError, setAssignError] = useState('');
   const [assignTournamentError, setAssignTournamentError] = useState('');
+  const [countries, setCountries] = useState([]);
 
   // Fetch organizers from API
   useEffect(() => {
     fetchOrganizers();
+    fetchCountries();
   }, []);
+
+  const fetchCountries = async () => {
+    try {
+      const response = await fetch('/api/v1/countries');
+      const result = await response.json();
+      if (result.success) setCountries(result.data || []);
+    } catch (error) {
+      console.error('Error fetching countries:', error);
+    }
+  };
 
   const fetchOrganizers = async () => {
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch('https://api.toptopfootball.com/api/v1/auth/all-player', {
+      const response = await fetch('/api/v1/auth/all-player', {
         headers: {
           'Authorization': token,
           'Content-Type': 'application/json'
@@ -75,7 +87,7 @@ const Organizers = () => {
     setMatchLoading(true);
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`https://api.toptopfootball.com/api/v1/lobby/organizer-lobby/${organizerId}`, {
+      const response = await fetch(`/api/v1/lobby/organizer-lobby/${organizerId}`, {
         headers: {
           'Authorization': token,
           'Content-Type': 'application/json'
@@ -112,7 +124,7 @@ const Organizers = () => {
   const fetchAvailableLobbies = async () => {
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch('https://api.toptopfootball.com/api/v1/lobby/all-match', {
+      const response = await fetch('/api/v1/lobby/all-match', {
         headers: {
           'Authorization': token,
           'Content-Type': 'application/json'
@@ -151,7 +163,7 @@ const Organizers = () => {
   const fetchAvailableTournaments = async () => {
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch('https://api.toptopfootball.com/api/v1/tournament/all-tournament', {
+      const response = await fetch('/api/v1/tournament/all-tournament', {
         headers: {
           'Authorization': token,
           'Content-Type': 'application/json'
@@ -195,7 +207,7 @@ const Organizers = () => {
 
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`https://api.toptopfootball.com/api/v1/auth/delete-player/${organizerId}`, {
+      const response = await fetch(`/api/v1/auth/delete-player/${organizerId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': token,
@@ -233,7 +245,7 @@ const Organizers = () => {
       const token = localStorage.getItem('accessToken');
       const newStatus = currentStatus === 'active' ? 'blocked' : 'active';
 
-      const response = await fetch(`https://api.toptopfootball.com/api/v1/auth/update-status/${organizerId}`, {
+      const response = await fetch(`/api/v1/auth/update-status/${organizerId}`, {
         method: 'PATCH',
         headers: {
           'Authorization': token,
@@ -263,6 +275,33 @@ const Organizers = () => {
     } catch (error) {
       console.error('Error updating organizer status:', error);
       toast.error(error.message || 'Failed to update organizer status');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleCountryUpdate = async (organizerId, countryCode) => {
+    setActionLoading(`country-${organizerId}`);
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`/api/v1/auth/users/${organizerId}/country`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': token,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ countryCode })
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'Failed to update organizer country');
+      }
+      setOrganizers(organizers.map(organizer =>
+        organizer._id === organizerId ? { ...organizer, countryCode } : organizer
+      ));
+      toast.success('Organizer country updated');
+    } catch (error) {
+      toast.error(error.message || 'Failed to update organizer country');
     } finally {
       setActionLoading(null);
     }
@@ -298,7 +337,7 @@ const Organizers = () => {
 
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`https://api.toptopfootball.com/api/v1/lobby/assign-lobby/${selectedOrganizer._id}`, {
+      const response = await fetch(`/api/v1/lobby/assign-lobby/${selectedOrganizer._id}`, {
         method: 'PUT',
         headers: {
           'Authorization': token,
@@ -361,7 +400,7 @@ const Organizers = () => {
 
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`https://api.toptopfootball.com/api/v1/lobby/assign-tournament/${selectedOrganizer._id}`, {
+      const response = await fetch(`/api/v1/lobby/assign-tournament/${selectedOrganizer._id}`, {
         method: 'PUT',
         headers: {
           'Authorization': token,
@@ -626,6 +665,7 @@ const Organizers = () => {
     organizer?.FullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     organizer?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     organizer?.mobile?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    organizer?.countryCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     organizer?.role?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -694,6 +734,7 @@ const Organizers = () => {
                 <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Name</th>
                 <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Email</th>
                 <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Phone</th>
+                <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Country</th>
                 <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Role</th>
                 <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Status</th>
                 <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Actions</th>
@@ -737,6 +778,21 @@ const Organizers = () => {
                     <span className="text-sm text-gray-700">
                       {organizer.mobile && organizer.mobile !== 'N/A' ? organizer.mobile : 'Not provided'}
                     </span>
+                  </td>
+
+                  <td className="py-4 px-6">
+                    <select
+                      value={organizer.countryCode || 'AE'}
+                      disabled={actionLoading === `country-${organizer._id}`}
+                      onChange={(e) => handleCountryUpdate(organizer._id, e.target.value)}
+                      className="px-2 py-1 border border-gray-300 rounded-lg text-sm bg-white"
+                    >
+                      {(countries.length ? countries : [{ countryCode: 'AE', name: 'United Arab Emirates' }]).map((country) => (
+                        <option key={country.countryCode} value={country.countryCode}>
+                          {country.countryCode}
+                        </option>
+                      ))}
+                    </select>
                   </td>
 
                   <td className="py-4 px-6">

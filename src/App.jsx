@@ -10,6 +10,7 @@ import Insights from "./components/Insights";
 import Settings from "./components/Settings";
 import Login from "./components/Login";
 import AdMinPrivate from "./private/Admin";
+import Countries from "./components/Countries";
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
           <Route path="user-management" element={<AdMinPrivate><UserManagement /></AdMinPrivate>} />
           <Route path="payments" element={<AdMinPrivate><Payments /></AdMinPrivate>} />
           <Route path="insights" element={<AdMinPrivate><Insights /></AdMinPrivate>} />
+          <Route path="countries" element={<AdMinPrivate><Countries /></AdMinPrivate>} />
           <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>

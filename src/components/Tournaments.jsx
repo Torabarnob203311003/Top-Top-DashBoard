@@ -4,9 +4,13 @@ import { Search, Calendar, MapPin, Flag, DollarSign, Shield, ShieldOff, Plus, X,
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
+const API_BASE = '/api/v1';
+
 function Tournaments() {
   const [tournaments, setTournaments] = useState([]);
   const [filteredTournaments, setFilteredTournaments] = useState([]);
+  const [countries, setCountries] = useState([]);
+  const [countryFilter, setCountryFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -15,6 +19,7 @@ function Tournaments() {
   // Create tournament form state - Updated according to schema
   const [createFormData, setCreateFormData] = useState({
     name: "",
+    countryCode: "AE",
     type: "League",
     price: 0,
     location: {
@@ -59,19 +64,47 @@ function Tournaments() {
     };
   };
 
+  const filterTournamentList = (items, term) => {
+    if (term.trim() === '') return items;
+
+    return items.filter(tournament =>
+      tournament.name?.toLowerCase().includes(term.toLowerCase()) ||
+      tournament.location?.address?.toLowerCase().includes(term.toLowerCase()) ||
+      tournament.type?.toLowerCase().includes(term.toLowerCase()) ||
+      (tournament.countryCode || 'AE').toLowerCase().includes(term.toLowerCase())
+    );
+  };
+
+  const fetchCountries = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/countries`, {
+        method: 'GET',
+        headers: getAuthHeadersForGet()
+      });
+      const result = await response.json();
+      if (result.success) setCountries(result.data || []);
+    } catch (error) {
+      console.error('Error fetching countries:', error);
+    }
+  };
+
   // Fetch tournaments from API
   const fetchTournaments = async () => {
     try {
       setLoading(true);
-      const response = await fetch('https://api.toptopfootball.com/api/v1/tournament/all-tournament', {
+      const endpoint = countryFilter === 'all'
+        ? `${API_BASE}/tournament/all-tournament`
+        : `${API_BASE}/tournament/country/${countryFilter}`;
+      const response = await fetch(endpoint, {
         method: 'GET',
         headers: getAuthHeadersForGet()
       });
       const result = await response.json();
 
       if (result.success) {
-        setTournaments(result.data);
-        setFilteredTournaments(result.data);
+        const items = result.data || [];
+        setTournaments(items);
+        setFilteredTournaments(filterTournamentList(items, searchTerm));
       } else {
         toast.error('Failed to fetch tournaments');
       }
@@ -95,7 +128,7 @@ function Tournaments() {
       const formData = new FormData();
       formData.append('status', newStatus);
 
-      const response = await fetch(`https://api.toptopfootball.com/api/v1/tournament/update-tournament/${tournamentId}`, {
+      const response = await fetch(`/api/v1/tournament/update-tournament/${tournamentId}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `${token}`,
@@ -129,7 +162,7 @@ function Tournaments() {
 
       setDeletingTournament(true);
 
-      const response = await fetch(`https://api.toptopfootball.com/api/v1/tournament/delete-tournament/${tournamentId}`, {
+      const response = await fetch(`/api/v1/tournament/delete-tournament/${tournamentId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `${token}`,
@@ -162,12 +195,7 @@ function Tournaments() {
     if (term.trim() === '') {
       setFilteredTournaments(tournaments);
     } else {
-      const filtered = tournaments.filter(tournament =>
-        tournament.name.toLowerCase().includes(term.toLowerCase()) ||
-        tournament.location.address.toLowerCase().includes(term.toLowerCase()) ||
-        tournament.type.toLowerCase().includes(term.toLowerCase())
-      );
-      setFilteredTournaments(filtered);
+      setFilteredTournaments(filterTournamentList(tournaments, term));
     }
   };
 
@@ -202,7 +230,7 @@ function Tournaments() {
 
     try {
       const response = await fetch(
-        `https://api.toptopfootball.com/api/autocomplete?input=${encodeURIComponent(query)}`,
+        `/api/autocomplete?input=${encodeURIComponent(query)}&countryCode=${encodeURIComponent(createFormData.countryCode || 'AE')}`,
         {
           method: 'GET',
           headers: getAuthHeadersForGet()
@@ -238,7 +266,7 @@ function Tournaments() {
 
       // Then fetch the details with token
       const response = await fetch(
-        `https://api.toptopfootball.com/api/place-details?place_id=${suggestion.place_id}`,
+        `/api/place-details?place_id=${suggestion.place_id}`,
         {
           method: 'GET',
           headers: getAuthHeadersForGet()
@@ -337,6 +365,7 @@ function Tournaments() {
       // Append the tournament data as a JSON string in 'data' field
       const tournamentData = {
         name: createFormData.name,
+        countryCode: createFormData.countryCode || 'AE',
         type: createFormData.type,
         price: Number(createFormData.price),
         location: {
@@ -365,7 +394,7 @@ function Tournaments() {
       formData.append('images', tournamentImage);
 
       // Send request to create tournament
-      const response = await fetch('https://api.toptopfootball.com/api/v1/tournament/create-tournament', {
+      const response = await fetch(`${API_BASE}/tournament/create-tournament-v2`, {
         method: 'POST',
         headers: {
           'Authorization': `${token}`,
@@ -411,6 +440,7 @@ function Tournaments() {
   const resetCreateForm = () => {
     setCreateFormData({
       name: "",
+      countryCode: countryFilter === 'all' ? "AE" : countryFilter,
       type: "League",
       price: 0,
       location: {
@@ -440,9 +470,26 @@ function Tournaments() {
   };
 
   // Format price
-  const formatPrice = (price) => {
-    return `${price} AED`;
+  const formatPrice = (price, currencyCode) => {
+    return `${price || 0} ${currencyCode || 'AED'}`;
   };
+
+  const handleCreateCountryChange = (countryCode) => {
+    setCreateFormData(prev => ({
+      ...prev,
+      countryCode,
+      location: {
+        lat: 0,
+        lng: 0,
+        address: "",
+      },
+    }));
+    setLocationSearch("");
+    setLocationSuggestions([]);
+    setShowLocationSuggestions(false);
+  };
+
+  const selectedCreateCountry = countries.find((country) => country.countryCode === createFormData.countryCode);
 
   // Format duration
   const formatDuration = (days) => {
@@ -462,8 +509,12 @@ function Tournaments() {
   };
 
   useEffect(() => {
-    fetchTournaments();
+    fetchCountries();
   }, []);
+
+  useEffect(() => {
+    fetchTournaments();
+  }, [countryFilter]);
 
   // Close suggestions when clicking outside
   useEffect(() => {
@@ -496,8 +547,23 @@ function Tournaments() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Tournaments</h1>
         <div className="flex items-center gap-4">
+          <select
+            value={countryFilter}
+            onChange={(e) => setCountryFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-white text-gray-700"
+          >
+            <option value="all">All Countries</option>
+            {(countries.length ? countries : [{ countryCode: 'AE', name: 'United Arab Emirates' }]).map((country) => (
+              <option key={country.countryCode} value={country.countryCode}>
+                {country.name} ({country.countryCode})
+              </option>
+            ))}
+          </select>
           <button
-            onClick={() => setShowCreateModal(true)}
+            onClick={() => {
+              if (countryFilter !== 'all') handleCreateCountryChange(countryFilter);
+              setShowCreateModal(true);
+            }}
             className="flex items-center gap-2 bg-green-500 text-white px-5 py-2 rounded-lg font-medium hover:bg-green-600 transition-colors"
           >
             <Plus className="w-5 h-5" />
@@ -607,7 +673,11 @@ function Tournaments() {
                   </div>
                   <div className="flex items-center gap-1">
                     <DollarSign className="w-4 h-4 text-green-500" />
-                    <span className="text-gray-600 text-sm">{formatPrice(tournament.price)}</span>
+                    <span className="text-gray-600 text-sm">{formatPrice(tournament.price, tournament.currencyCode)}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <MapPin className="w-4 h-4 text-blue-500" />
+                    <span className="text-gray-600 text-sm">{tournament.countryCode || 'AE'}</span>
                   </div>
                 </div>
 
@@ -663,6 +733,25 @@ function Tournaments() {
               {/* Tournament Type (Required - according to schema) */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Country *
+                </label>
+                <select
+                  value={createFormData.countryCode}
+                  onChange={(e) => handleCreateCountryChange(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  disabled={creatingTournament}
+                >
+                  {(countries.length ? countries : [{ countryCode: 'AE', name: 'United Arab Emirates', currencyCode: 'AED' }]).map((country) => (
+                    <option key={country.countryCode} value={country.countryCode}>
+                      {country.name} ({country.countryCode} / {country.currencyCode || 'AED'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Tournament Type (Required - according to schema) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Tournament Type *
                 </label>
                 <select
@@ -680,7 +769,7 @@ function Tournaments() {
               {/* Price (Required in schema) */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Price (AED) *
+                  Price ({selectedCreateCountry?.currencyCode || 'AED'}) *
                 </label>
                 <input
                   type="number"

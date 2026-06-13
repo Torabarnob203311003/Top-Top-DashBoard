@@ -3,8 +3,12 @@ import { Search, Plus, Loader, MapPin, Clock, Users, DollarSign, Circle, Video, 
 import CreateLobbyForm from './CreateLobbyForm';
 import { jwtDecode } from 'jwt-decode';
 
+const API_BASE = '/api/v1';
+
 function Products() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [countryFilter, setCountryFilter] = useState('all');
+  const [countries, setCountries] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
   const [lobbies, setLobbies] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -29,14 +33,28 @@ function Products() {
     }
   }, []);
 
-  const fetchLobbies = async () => {
+  const fetchCountries = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/countries`);
+      const result = await response.json();
+      if (result.success) setCountries(result.data || []);
+    } catch (error) {
+      console.error('Failed to load countries:', error);
+    }
+  };
+
+  const fetchLobbies = async (selectedCountry = countryFilter) => {
     try {
       setLoading(true);
+      setError(null);
       const token = localStorage.getItem('accessToken');
       const headers = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `${token}`;
 
-      const response = await fetch('https://api.toptopfootball.com/api/v1/lobby/all-match', { headers });
+      const endpoint = selectedCountry === 'all'
+        ? `${API_BASE}/lobby/all-match`
+        : `${API_BASE}/lobby/country/${selectedCountry}`;
+      const response = await fetch(endpoint, { headers });
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const result = await response.json();
       if (result.success) {
@@ -51,9 +69,10 @@ function Products() {
     }
   };
 
-  useEffect(() => { fetchLobbies(); }, []);
+  useEffect(() => { fetchCountries(); }, []);
+  useEffect(() => { fetchLobbies(countryFilter); }, [countryFilter]);
 
-  const refreshLobbies = () => { fetchLobbies(); };
+  const refreshLobbies = () => { fetchLobbies(countryFilter); };
 
   const toggleLobbyBlock = async (lobbyId, currentStatus) => {
     try {
@@ -63,7 +82,7 @@ function Products() {
       const newStatus = currentStatus === 'block' ? 'ongoing' : 'block';
       const formData = new FormData();
       formData.append('lobbyStatus', newStatus);
-      const response = await fetch(`https://api.toptopfootball.com/api/v1/lobby/${lobbyId}/lobby-info`, {
+      const response = await fetch(`/api/v1/lobby/${lobbyId}/lobby-info`, {
         method: 'PUT',
         headers: { 'Authorization': `${token}` },
         body: formData
@@ -88,7 +107,7 @@ function Products() {
       setDeletingLobby(lobbyId);
       const token = localStorage.getItem('accessToken');
       if (!token) { alert('Authentication required'); return; }
-      const response = await fetch(`https://api.toptopfootball.com/api/v1/lobby/delete/${lobbyId}`, {
+      const response = await fetch(`/api/v1/lobby/delete/${lobbyId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `${token}`, 'Content-Type': 'application/json' },
       });
@@ -183,6 +202,8 @@ function Products() {
 
   const getCategory = (teamSize) => `${teamSize}v${teamSize}`;
 
+  const formatPrice = (price, currencyCode) => `${price || 0} ${currencyCode || 'AED'}`;
+
   const getStatusIcon = (lobbyStatus) => {
     switch (lobbyStatus) {
       case 'ongoing': return <Circle className="w-3 h-3 fill-green-500 text-green-500" />;
@@ -213,6 +234,7 @@ function Products() {
       lobby.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       getTeam1Name(lobby).toLowerCase().includes(searchTerm.toLowerCase()) ||
       getTeam2Name(lobby).toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (lobby.countryCode || 'AE').toLowerCase().includes(searchTerm.toLowerCase()) ||
       lobby.location?.address?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   });
@@ -258,7 +280,11 @@ function Products() {
   if (showCreate) {
     return (
       <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
-        <CreateLobbyForm onClose={() => setShowCreate(false)} onLobbyCreated={refreshLobbies} />
+        <CreateLobbyForm
+          defaultCountryCode={countryFilter === 'all' ? 'AE' : countryFilter}
+          onClose={() => setShowCreate(false)}
+          onLobbyCreated={refreshLobbies}
+        />
       </div>
     );
   }
@@ -304,6 +330,18 @@ function Products() {
             <button className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg flex items-center space-x-2" onClick={() => setShowCreate(true)}>
               <Plus className="w-4 h-4" /><span>Create Lobby</span>
             </button>
+            <select
+              value={countryFilter}
+              onChange={(e) => setCountryFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-white text-gray-700"
+            >
+              <option value="all">All Countries</option>
+              {(countries.length ? countries : [{ countryCode: 'AE', name: 'United Arab Emirates' }]).map((country) => (
+                <option key={country.countryCode} value={country.countryCode}>
+                  {country.name} ({country.countryCode})
+                </option>
+              ))}
+            </select>
             <div className="relative">
               <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
               <input
@@ -411,7 +449,11 @@ function Products() {
                     </div>
                     <div className="flex items-center space-x-2">
                       <DollarSign className="w-4 h-4 text-yellow-500" />
-                      <span className="text-gray-700">{lobby.price || 0}</span>
+                      <span className="text-gray-700">{formatPrice(lobby.price, lobby.currencyCode)}</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <MapPin className="w-4 h-4 text-blue-500" />
+                      <span className="text-gray-700">{lobby.countryCode || 'AE'}</span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Users className="w-4 h-4 text-green-500" />
