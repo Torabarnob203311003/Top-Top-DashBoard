@@ -7,7 +7,10 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 const Dashboard = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('This week');
   const [dashboardData, setDashboardData] = useState(null);
+  const [countryFilter, setCountryFilter] = useState('AE');
+  const [countries, setCountries] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [dashboardError, setDashboardError] = useState('');
   const navigate = useNavigate();
 
   const getToken = () => localStorage.getItem("accessToken");
@@ -22,6 +25,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     const fetchDashboardData = async () => {
+      setLoading(true);
       const token = getToken();
 
       // If no token exists, redirect to login
@@ -31,7 +35,8 @@ const Dashboard = () => {
       }
 
       try {
-        const response = await fetch('/api/v1/admin/admin-data', {
+        setDashboardError('');
+        const response = await fetch(`/api/v1/admin/admin-data-v2?countryCode=${encodeURIComponent(countryFilter)}`, {
           method: "GET",
           headers: {
             Authorization: `${token}`,
@@ -55,16 +60,25 @@ const Dashboard = () => {
         }
 
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          let errorMessage = `HTTP error! status: ${response.status}`;
+          try {
+            const errorResult = await response.json();
+            errorMessage = errorResult.message || errorMessage;
+          } catch {
+            // keep status fallback
+          }
+          throw new Error(errorMessage);
         }
 
         const result = await response.json();
 
         if (result.success) {
           setDashboardData(result.data);
+          setCountries(result.data?.countries || []);
         } else {
           // API returned success: false
           console.error('API returned error:', result.message);
+          setDashboardError(result.message || 'Failed to load dashboard data');
           if (result.message?.toLowerCase().includes('unauthorized') ||
             result.message?.toLowerCase().includes('token')) {
             handleUnauthorized();
@@ -72,6 +86,7 @@ const Dashboard = () => {
         }
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
+        setDashboardError(error.message || 'Failed to load dashboard data');
 
         // Check if it's a network error or CORS issue
         if (error.message === 'Failed to fetch' || error.name === 'TypeError') {
@@ -88,16 +103,28 @@ const Dashboard = () => {
     };
 
     fetchDashboardData();
-  }, [navigate]);
+  }, [navigate, countryFilter]);
+
+  const displayCurrency = dashboardData?.displayCurrency || 'AED';
+
+  const formatMoney = (amount, currencyCode = displayCurrency) => {
+    const value = Number(amount || 0).toLocaleString();
+    return `${value} ${currencyCode}`;
+  };
+
+  const formatRevenueTotal = () => {
+    return formatMoney(dashboardData?.totalRevenue || 0, displayCurrency);
+  };
 
   // Format revenue bar graph data for the chart
   const formatChartData = () => {
     if (!dashboardData?.revenueBarGraph) return [];
 
     return dashboardData.revenueBarGraph.map(item => ({
-      name: `Day ${item._id.day} - ${item._id.hour}:00`,
+      name: `Day ${item._id.day} - ${item._id.hour}:00${item._id.currencyCode ? ` ${item._id.currencyCode}` : ''}`,
       hour: `${item._id.hour}:00`,
-      value: item.total
+      value: item.total,
+      currencyCode: item._id.currencyCode || displayCurrency
     }));
   };
 
@@ -175,7 +202,7 @@ const Dashboard = () => {
   if (!dashboardData) {
     return (
       <div className="min-h-screen p-6 flex flex-col items-center justify-center space-y-4">
-        <div className="text-lg text-red-600">Failed to load dashboard data</div>
+        <div className="text-lg text-red-600">{dashboardError || 'Failed to load dashboard data'}</div>
         <button
           onClick={() => window.location.reload()}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -205,7 +232,7 @@ const Dashboard = () => {
         <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
           <p className="font-medium text-gray-900">{label}</p>
           <p className="text-sm text-gray-600">
-            {payload[0].dataKey === 'value' ? 'Revenue:' : 'Players:'} <span className="font-semibold">{payload[0].value}</span>
+            {payload[0].dataKey === 'value' ? 'Revenue:' : 'Players:'} <span className="font-semibold">{payload[0].value} {payload[0].payload?.currencyCode || ''}</span>
           </p>
         </div>
       );
@@ -221,6 +248,20 @@ const Dashboard = () => {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Dashboard Overview</h1>
             <p className="text-gray-600">Welcome to your sports management dashboard</p>
+          </div>
+          <div className="flex items-center space-x-3">
+            <Globe className="w-5 h-5 text-gray-400" />
+            <select
+              value={countryFilter}
+              onChange={(e) => setCountryFilter(e.target.value)}
+              className="text-sm border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            >
+              {(countries.length ? countries : [{ countryCode: 'AE', name: 'United Arab Emirates', currencyCode: 'AED' }]).map((country) => (
+                <option key={country.countryCode} value={country.countryCode}>
+                  {country.name} ({country.countryCode} / {country.currencyCode})
+                </option>
+              ))}
+            </select>
           </div>
           <div className="flex items-center hidden space-x-4">
             <select
@@ -240,7 +281,7 @@ const Dashboard = () => {
           <StatCard
             icon={DollarSign}
             title="Total Revenue"
-            value={`${dashboardData.totalRevenue?.toLocaleString() || '0'} AED`}
+            value={formatRevenueTotal()}
             changeType={dashboardData.revenueGrowth > 0 ? 'positive' : dashboardData.revenueGrowth < 0 ? 'negative' : 'neutral'}
             bgColor="bg-green-50"
             iconColor="text-green-600"
@@ -286,7 +327,7 @@ const Dashboard = () => {
               </div>
               <div className="flex items-center space-x-2 text-sm text-gray-500">
                 <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                <span>Revenue (AED)</span>
+                <span>Revenue ({displayCurrency})</span>
               </div>
             </div>
             <div style={{ width: '100%', height: 250 }}>
@@ -492,7 +533,7 @@ const Dashboard = () => {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold text-gray-900">{transaction.price} AED</p>
+                    <p className="font-semibold text-gray-900">{formatMoney(transaction.price, transaction.currencyCode || displayCurrency)}</p>
                     <p className="text-xs text-gray-500">
                       {new Date(transaction.createdAt).toLocaleDateString('en-US', {
                         month: 'short',
