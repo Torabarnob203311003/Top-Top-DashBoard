@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { TrendingUp, Package, Users, Activity, Calendar, MapPin, DollarSign, Globe } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
@@ -16,12 +16,33 @@ const Dashboard = () => {
   const getToken = () => localStorage.getItem("accessToken");
 
   // Function to handle logout and clear storage
-  const handleUnauthorized = () => {
+  const handleUnauthorized = useCallback(() => {
     localStorage.removeItem("accessToken");
     localStorage.removeItem("user"); 
     sessionStorage.clear(); 
     navigate('/login', { replace: true });
-  };
+  }, [navigate]);
+
+  const fetchDashboardResponse = useCallback(async (token) => {
+    const headers = {
+      Authorization: `${token}`,
+      "Content-Type": "application/json"
+    };
+
+    const v2Response = await fetch(`/api/v1/admin/admin-data-v2?countryCode=${encodeURIComponent(countryFilter)}`, {
+      method: "GET",
+      headers
+    });
+
+    if (v2Response.status !== 404) {
+      return v2Response;
+    }
+
+    return fetch('/api/v1/admin/admin-data', {
+      method: "GET",
+      headers
+    });
+  }, [countryFilter]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -36,13 +57,7 @@ const Dashboard = () => {
 
       try {
         setDashboardError('');
-        const response = await fetch(`/api/v1/admin/admin-data-v2?countryCode=${encodeURIComponent(countryFilter)}`, {
-          method: "GET",
-          headers: {
-            Authorization: `${token}`,
-            "Content-Type": "application/json"
-          }
-        });
+        const response = await fetchDashboardResponse(token);
 
         // Handle different response statuses
         if (response.status === 401 || response.status === 403) {
@@ -53,10 +68,7 @@ const Dashboard = () => {
         }
 
         if (response.status === 404) {
-          // Data not found (database deleted or endpoint missing)
-          console.error('Data not found - possible database issue');
-          handleUnauthorized();
-          return;
+          console.error('Dashboard data endpoint not found');
         }
 
         if (!response.ok) {
@@ -103,7 +115,7 @@ const Dashboard = () => {
     };
 
     fetchDashboardData();
-  }, [navigate, countryFilter]);
+  }, [fetchDashboardResponse, handleUnauthorized]);
 
   const displayCurrency = dashboardData?.displayCurrency || 'AED';
 
