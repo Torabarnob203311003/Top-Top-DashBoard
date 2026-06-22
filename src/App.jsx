@@ -11,6 +11,7 @@ import Settings from "./components/Settings";
 import Login from "./components/Login";
 import AdMinPrivate from "./private/Admin";
 import Countries from "./components/Countries";
+import TransactionFees from "./components/TransactionFees";
 
 function App() {
   return (
@@ -28,6 +29,7 @@ function App() {
           <Route path="payments" element={<AdMinPrivate><Payments /></AdMinPrivate>} />
           <Route path="insights" element={<AdMinPrivate><Insights /></AdMinPrivate>} />
           <Route path="countries" element={<AdMinPrivate><Countries /></AdMinPrivate>} />
+          <Route path="transaction-fees" element={<AdMinPrivate><TransactionFees /></AdMinPrivate>} />
           <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>

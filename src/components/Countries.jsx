@@ -24,6 +24,7 @@ const emptyForm = {
   dialCode: "",
   currencyCode: "",
   merchantCountryCode: "",
+  fixedTransactionFee: "",
   isActive: true,
   cities: [],
 };
@@ -82,6 +83,7 @@ function Countries() {
       dialCode: selectedCountry.dialCode || "",
       currencyCode: selectedCountry.currencyCode || "",
       merchantCountryCode: selectedCountry.merchantCountryCode || selectedCountry.countryCode || "",
+      fixedTransactionFee: selectedCountry.fixedTransactionFee ?? 0,
       isActive: Boolean(selectedCountry.isActive),
       cities: (selectedCountry.cities || []).map((city, index) => ({
         id: city.id || index + 1,
@@ -248,6 +250,10 @@ function Countries() {
         isActive: form.isActive,
         cities,
       };
+      const fixedTransactionFee = Number(form.fixedTransactionFee || 0);
+      if (!Number.isFinite(fixedTransactionFee) || fixedTransactionFee < 0) {
+        throw new Error("Fixed transaction fee must be a non-negative number");
+      }
 
       const isEditing = Boolean(selectedCode);
       const response = await fetch(
@@ -262,8 +268,18 @@ function Countries() {
       if (!response.ok || !result.success) {
         throw new Error(result.message || "Failed to save country");
       }
+      const savedCountryCode = result.data?.countryCode || payload.countryCode;
+      const feeResponse = await fetch(`${API_BASE}/transaction-fees/countries/${savedCountryCode}`, {
+        method: "PATCH",
+        headers: headers(),
+        body: JSON.stringify({ fixedTransactionFee }),
+      });
+      const feeResult = await feeResponse.json();
+      if (!feeResponse.ok || !feeResult.success) {
+        throw new Error(feeResult.message || "Failed to save fixed transaction fee");
+      }
       toast.success(isEditing ? "Country updated" : "Country added");
-      setSelectedCode(result.data?.countryCode || payload.countryCode);
+      setSelectedCode(savedCountryCode);
       fetchCountries();
     } catch (error) {
       toast.error(error.message || "Failed to save country");
@@ -387,6 +403,7 @@ function Countries() {
           <input className="border border-gray-300 rounded-lg px-3 py-2" placeholder="Dial code, e.g. +971" value={form.dialCode} onChange={(e) => setForm({ ...form, dialCode: e.target.value })} />
           <input className="border border-gray-300 rounded-lg px-3 py-2" placeholder="Currency, e.g. AED" value={form.currencyCode} onChange={(e) => setForm({ ...form, currencyCode: e.target.value })} />
           <input className="border border-gray-300 rounded-lg px-3 py-2" placeholder="Merchant country, e.g. AE" value={form.merchantCountryCode} onChange={(e) => setForm({ ...form, merchantCountryCode: e.target.value })} />
+          <input className="border border-gray-300 rounded-lg px-3 py-2" type="number" min="0" step="0.01" placeholder="Fixed transaction fee" value={form.fixedTransactionFee} onChange={(e) => setForm({ ...form, fixedTransactionFee: e.target.value })} />
           <label className="flex items-center gap-2 text-sm text-gray-700">
             <input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} />
             Active
