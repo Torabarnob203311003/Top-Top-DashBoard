@@ -12,6 +12,7 @@ import Login from "./components/Login";
 import AdMinPrivate from "./private/Admin";
 import Countries from "./components/Countries";
 import TransactionFees from "./components/TransactionFees";
+import BookingGuidelines from "./components/BookingGuidelines";
 
 function App() {
   return (
@@ -30,6 +31,7 @@ function App() {
           <Route path="insights" element={<AdMinPrivate><Insights /></AdMinPrivate>} />
           <Route path="countries" element={<AdMinPrivate><Countries /></AdMinPrivate>} />
           <Route path="transaction-fees" element={<AdMinPrivate><TransactionFees /></AdMinPrivate>} />
+          <Route path="booking-guidelines" element={<AdMinPrivate><BookingGuidelines /></AdMinPrivate>} />
           <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>

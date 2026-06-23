@@ -53,6 +53,9 @@ function Layout() {
           <NavLink to="/transaction-fees" className={({ isActive }) =>
             `p-2 rounded transition-colors ${isActive ? 'bg-[#2EDB95] text-white' : 'text-[#AEAEAE] hover:bg-[#2EDB95] hover:text-white'}`
           }>Transaction Fees</NavLink>
+          <NavLink to="/booking-guidelines" className={({ isActive }) =>
+            `p-2 rounded transition-colors ${isActive ? 'bg-[#2EDB95] text-white' : 'text-[#AEAEAE] hover:bg-[#2EDB95] hover:text-white'}`
+          }>Booking Guidelines</NavLink>
           <NavLink to="/settings" className={({ isActive }) =>
             `p-2 rounded transition-colors ${isActive ? 'bg-[#2EDB95] text-white' : 'text-[#AEAEAE] hover:bg-[#2EDB95] hover:text-white'}`
           }>Settings</NavLink>
